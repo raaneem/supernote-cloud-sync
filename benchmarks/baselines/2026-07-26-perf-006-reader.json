@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-006",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "gridPages": 1000,
+    "gestureSequences": 500,
+    "inputTransformWritesPerSequence": 20,
+    "desktopViewport": "800x720",
+    "mobileViewport": "390x700"
+  },
+  "before": {
+    "source": "2026-07-25-desktop.json",
+    "desktopGestureP95Ms": 0.001,
+    "desktopMaxTaskMs": 0.106,
+    "mountedCards": 1000,
+    "perCardListeners": 5,
+    "totalPerCardListeners": 5000,
+    "permanentWillChangeRules": 2
+  },
+  "after": {
+    "desktopGestureP95Ms": 0.002,
+    "desktopMaxTaskMs": 0.125,
+    "desktopMountedCards": 32,
+    "mobileContractGestureP95Ms": 0.002,
+    "mobileContractMaxTaskMs": 0.119,
+    "mobileContractMountedCards": 16,
+    "delegatedGridListeners": 6,
+    "perCardListeners": 0,
+    "desktopMountedThumbnailCanvasBytes": 9830400,
+    "mobileMountedThumbnailCanvasBytes": 4915200,
+    "inputTransformWrites": 10000,
+    "animationFrameRequests": 500,
+    "transformCommits": 500,
+    "retainedHarnessBytesAfterGc": 0,
+    "permanentWillChangeRules": 0
+  },
+  "notes": [
+    "The production grid planner retains two overscan rows before and after the visible rows.",
+    "The frame-batcher measurement sends twenty input updates per sequence through the production coalescer and observes one commit.",
+    "The mobile row validates mobile viewport geometry and configured code paths on the desktop harness; physical-device frame, RSS, and gesture validation remains outstanding."
+  ]
+}

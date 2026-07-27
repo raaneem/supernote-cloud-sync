@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-008",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "files": 500,
+    "referenceTotalBytes": 1073741824,
+    "referenceBytesPerFile": 2147483
+  },
+  "before": {
+    "source": "2026-07-25-desktop.json",
+    "sampledTotalBytes": 32768000,
+    "peakWorkingBytes": 53743320,
+    "retainedBytesAfterGc": 36283744,
+    "mainThreadTaskProxyMs": 201.248,
+    "vaultReads": 500,
+    "retainedIndexedFileBytes": 32768000,
+    "mainThreadChecksumHashes": 500
+  },
+  "after": {
+    "sampledTotalBytes": 1073741824,
+    "peakWorkingBytes": 14690920,
+    "retainedBytesAfterGc": 0,
+    "maxTransferPreparationTaskMs": 0.005,
+    "vaultReads": 1000,
+    "workerChecksumHashes": 1000,
+    "checksumWorkerCreations": 1,
+    "checksumInputCopies": 0,
+    "checksumTransferredBytes": 2147483000,
+    "checksumReturnedBytes": 2147483000,
+    "maxChecksumsInFlight": 1,
+    "maxChecksumBytesInFlight": 2147483,
+    "uploadedFiles": 500,
+    "manifestWrites": 1,
+    "longTasks": 0,
+    "totalDurationMs": 8542.997
+  },
+  "notes": [
+    "The before harness retained every indexed file, so the standard 32 MiB sample already exceeded the largest-file-plus-16-MiB budget.",
+    "The after harness ran the full 500-file reference subtree. Each new file is hashed while indexing and again after the upload re-read so a concurrent edit cannot be uploaded under a stale decision.",
+    "Exact ArrayBuffer-backed views transfer without an input copy. The benchmark worker uses the production incremental runtime and transfer ownership protocol."
+  ]
+}

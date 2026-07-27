@@ -1,0 +1,98 @@
+name: Windows beta report
+description: Record the Windows 11 release acceptance checklist
+title: "[Windows beta]: "
+labels:
+  - windows-beta
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for testing the beta. Use a normal Windows 11 Obsidian installation. Remove tokens, notebook content, account details, and personal paths from every attachment.
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description:
+        Windows, Obsidian, plugin, and any Claude Code or Codex CLI versions.
+    validations:
+      required: true
+  - type: dropdown
+    id: brat
+    attributes:
+      label: BRAT installation and update
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: cloud
+    attributes:
+      label: Supernote Cloud login and folder Mirror
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: reader
+    attributes:
+      label: Reader open, paging, zoom, and Export
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: send
+    attributes:
+      label: Send to Supernote
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: paired
+    attributes:
+      label: Paired-folder round trip
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: spaces
+    attributes:
+      label: Vault or relevant path containing spaces
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: command
+    attributes:
+      label: Supplied examples/transcribe.cmd recipe
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Real Claude Code or Codex CLI discovery or path override
+      options: [Pass, Fail]
+    validations:
+      required: true
+  - type: textarea
+    id: failures
+    attributes:
+      label: Failures or observations
+      description:
+        Explain every failed item and include minimal reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description:
+        Attach only diagnostics and console output reviewed to remove secrets
+        and personal paths.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label:
+            I removed credentials, tokens, private notebook content, account
+            details, and personal paths.
+          required: true

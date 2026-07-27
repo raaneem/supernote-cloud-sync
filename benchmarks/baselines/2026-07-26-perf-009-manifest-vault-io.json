@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-009",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "mirroredFiles": 500,
+    "writableSyncs": 1,
+    "unrelatedManifestEntries": 1
+  },
+  "before": {
+    "manifestReads": 502,
+    "manifestWrites": 501,
+    "settingsVaultScansForNHooks": "N+1",
+    "writableListingScope": "entire indexed vault",
+    "collisionContentReadsPerCandidate": "up to 2"
+  },
+  "after": {
+    "manifestReads": 1,
+    "manifestWrites": 1,
+    "settingsVaultScansForNHooks": 1,
+    "writableSubtreeScans": 1,
+    "collisionContentBytesRead": 0,
+    "binaryGuardReadCalls": 500,
+    "binaryGuardBytesRead": 0,
+    "manifestBytesRead": 265,
+    "manifestEntriesAfterSync": 501,
+    "totalDurationMs": 2.763
+  },
+  "notes": [
+    "Before counts follow the previous production call graph: main loaded once, each mirrored file loaded and saved independently, and writable sync loaded and saved once.",
+    "The after benchmark drives the production manifest transaction, SyncService, and WritableSyncService with one shared manifest.",
+    "Fatal authentication, recoverable-error, conflict, metadata-existence, and unrelated-entry preservation are covered by focused tests.",
+    "Concurrent manifest writers use metadata revisions plus an in-process generation and only reread content when either changes.",
+    "Obsidian exposes indexed folder children but no portable recursive adapter listing, so the visible Writable subtree uses indexed traversal while hidden manifest access retains the adapter fallback."
+  ]
+}

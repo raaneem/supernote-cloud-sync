@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-010",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "pages": 20,
+    "generatedPngBytesPerPage": 524288,
+    "transcriptionProfile": "960x1280",
+    "mode": "document"
+  },
+  "before": {
+    "transcriptionRenderScale": 1,
+    "retainedRenderedPages": 20,
+    "retainedGeneratedPngBytes": 10485760,
+    "imageWriteOrder": "after every selected page was rendered",
+    "pdfInput": "eager rendered-page array",
+    "documentRequestPreflight": false,
+    "base64WorkingCopy": "one complete binary string per encoded page"
+  },
+  "after": {
+    "transcriptionRenderScale": 0.5,
+    "peakConcurrentRenderCalls": 1,
+    "boundedTransientWorkingBytes": 581632,
+    "base64ChunkBytes": 24576,
+    "base64EncodedChunkBytes": 32768,
+    "finalDocumentRequestBytes": 13982828,
+    "documentRequests": 1,
+    "pageModeRequests": 20,
+    "peakPreparedPageModePages": 3,
+    "pageModePreparedImageBytes": 1572864,
+    "maxPageModeRequestBytes": 699586,
+    "desktopPreparationMs": 175.786,
+    "mobileContractPreparationMs": 178.49,
+    "desktopDocumentMeasuredPeakProcessWorkingBytes": 39130979,
+    "mobileDocumentMeasuredPeakProcessWorkingBytes": 33079331,
+    "desktopPageModeMeasuredPeakProcessWorkingBytes": 35969448,
+    "mobilePageModeMeasuredPeakProcessWorkingBytes": 42715912,
+    "retainedBytesAfterGc": 0,
+    "desktopDocumentLimitBytes": 67108864,
+    "mobileDocumentLimitBytes": 33554432
+  },
+  "notes": [
+    "The production API adapter consumed a lazy generated page source and its real body serializer; the executor returned immediately to exclude network and model time.",
+    "The final request, measured peak process working memory, and the code-bounded one-page plus raw/encoded base64 chunks are reported independently.",
+    "Image exports write immediately, PDF pages embed sequentially, and page-mode API preparation plus request execution remains bounded by its configured concurrency.",
+    "Whole-document requests are estimated before complete body construction and remain one logical request; oversize selections recommend page mode or fewer pages.",
+    "The repository owner explicitly accepted the 960x1280 transcription profile on 2026-07-26 without requiring a new side-by-side transcription run."
+  ]
+}

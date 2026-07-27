@@ -1,0 +1,423 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T15:55:23.971Z",
+  "environment": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "device": "apple-m4-pro-24gb",
+    "gitCommit": "e617a41",
+    "gitDirty": true,
+    "node": "v22.22.2",
+    "obsidianMinimumVersion": "1.4.0",
+    "obsidianPluginVersion": "0.1.0",
+    "operatingSystem": "darwin",
+    "operatingSystemRelease": "25.5.0",
+    "packageVersion": "0.1.0",
+    "platform": "desktop",
+    "totalMemoryBytes": 25769803776
+  },
+  "profile": "standard",
+  "referenceWorkloads": {
+    "gridPages": 1000,
+    "notebookPages": 20,
+    "syncFiles": 500,
+    "syncTotalBytes": 1073741824
+  },
+  "scenarios": [
+    {
+      "name": "cold-activation",
+      "workload": {
+        "bundle": "main.js",
+        "isolatedProcesses": 5
+      },
+      "memory": {
+        "beforeBytes": 0,
+        "peakBytes": 12591874,
+        "afterGcBytes": 12591874,
+        "peakWorkingBytes": 12591874,
+        "retainedBytes": 12591874
+      },
+      "metrics": {
+        "activationP95Ms": 85.893,
+        "bundleBytes": 7599498,
+        "maxTaskMs": 85.893
+      },
+      "budgets": [
+        {
+          "metric": "activationP95Ms",
+          "limit": 100,
+          "unit": "ms",
+          "description": "Cold plugin activation p95",
+          "actual": 85.893,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Maximum plugin-attributable startup task",
+          "actual": 85.893,
+          "passed": false
+        },
+        {
+          "metric": "bundleBytes",
+          "limit": 4194304,
+          "unit": "bytes",
+          "description": "Uncompressed production main.js",
+          "actual": 7599498,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "bundleBytes": 7599498,
+        "isolatedProcesses": 5
+      },
+      "notes": [
+        "Measures CommonJS module evaluation with inert Obsidian and Worker boundaries; Obsidian onload self-time is a later instrumented metric."
+      ],
+      "longTasks": [
+        {
+          "durationMs": 84.686,
+          "sample": 0
+        },
+        {
+          "durationMs": 85.386,
+          "sample": 1
+        },
+        {
+          "durationMs": 84.574,
+          "sample": 2
+        },
+        {
+          "durationMs": 81.807,
+          "sample": 3
+        },
+        {
+          "durationMs": 85.893,
+          "sample": 4
+        }
+      ],
+      "passed": false,
+      "timings": {
+        "maxMs": 85.893,
+        "p50Ms": 84.686,
+        "p95Ms": 85.893,
+        "sampleCount": 5,
+        "totalMs": 422.347
+      }
+    },
+    {
+      "name": "page-rendering",
+      "workload": {
+        "fixture": "generated-blank-ratta-rle",
+        "height": 2560,
+        "referenceNotebookPages": 20,
+        "sampledPages": 3,
+        "width": 1920
+      },
+      "memory": {
+        "beforeBytes": 37593387,
+        "peakBytes": 266688057,
+        "afterGcBytes": 72581209,
+        "peakWorkingBytes": 229094670,
+        "retainedBytes": 34987822
+      },
+      "metrics": {
+        "maxTaskMs": 155.493,
+        "pageP95Ms": 155.493,
+        "peakWorkingBytes": 229094670
+      },
+      "budgets": [
+        {
+          "metric": "pageP95Ms",
+          "limit": 300,
+          "unit": "ms",
+          "description": "Uncached page pixels",
+          "actual": 155.493,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Maximum plugin-attributable render task",
+          "actual": 155.493,
+          "passed": false
+        },
+        {
+          "metric": "peakWorkingBytes",
+          "limit": 134217728,
+          "unit": "bytes",
+          "description": "Render resource ceiling",
+          "actual": 229094670,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "checksum": 0,
+        "decodedBytes": 58982400,
+        "encodedFixtureBytes": 600
+      },
+      "notes": [
+        "Generated fixture exercises the shipped Ratta decoder without personal notebook content.",
+        "Use --note with a gitignored local file to exercise the full parser, compositor, and PNG encoder."
+      ],
+      "longTasks": [
+        {
+          "durationMs": 155.493,
+          "sample": 0
+        },
+        {
+          "durationMs": 130.61,
+          "sample": 1
+        },
+        {
+          "durationMs": 153.718,
+          "sample": 2
+        }
+      ],
+      "passed": false,
+      "timings": {
+        "maxMs": 155.493,
+        "p50Ms": 153.718,
+        "p95Ms": 155.493,
+        "sampleCount": 3,
+        "totalMs": 439.821
+      }
+    },
+    {
+      "name": "viewer-interaction",
+      "workload": {
+        "gestureSequences": 500,
+        "gridPages": 1000,
+        "profile": "standard"
+      },
+      "memory": {
+        "beforeBytes": 52925001,
+        "peakBytes": 53500849,
+        "afterGcBytes": 33367953,
+        "peakWorkingBytes": 575848,
+        "retainedBytes": 0
+      },
+      "metrics": {
+        "gestureP95Ms": 0.001,
+        "maxTaskMs": 0.106,
+        "mountedCards": 1000
+      },
+      "budgets": [
+        {
+          "metric": "gestureP95Ms",
+          "limit": 8,
+          "unit": "ms",
+          "description": "Gesture and frame work p95",
+          "actual": 0.001,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Maximum interaction task",
+          "actual": 0.106,
+          "passed": true
+        },
+        {
+          "metric": "mountedCards",
+          "limit": 40,
+          "unit": "count",
+          "description": "Visible grid cards plus overscan",
+          "actual": 1000,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "generatedCards": 1000,
+        "transitions": 500
+      },
+      "notes": [
+        "The current grid model materializes all 1,000 cards; PERF-006 replaces this baseline with DOM virtualization counters."
+      ],
+      "longTasks": [],
+      "passed": false,
+      "timings": {
+        "maxMs": 0.106,
+        "p50Ms": 0.001,
+        "p95Ms": 0.001,
+        "sampleCount": 501,
+        "totalMs": 0.683
+      }
+    },
+    {
+      "name": "run-log-streaming",
+      "workload": {
+        "generatedLines": 1000,
+        "maxLogBytes": 262144
+      },
+      "memory": {
+        "beforeBytes": 33302105,
+        "peakBytes": 35477313,
+        "afterGcBytes": 34349537,
+        "peakWorkingBytes": 2175208,
+        "retainedBytes": 1047432
+      },
+      "metrics": {
+        "appendP95Ms": 0.005,
+        "maxTaskMs": 0.206
+      },
+      "budgets": [
+        {
+          "metric": "appendP95Ms",
+          "limit": 8,
+          "unit": "ms",
+          "description": "Stream append p95",
+          "actual": 0.005,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Maximum stream append task",
+          "actual": 0.206,
+          "passed": true
+        }
+      ],
+      "counters": {
+        "notifications": 1002,
+        "retainedLogBytes": 30900
+      },
+      "notes": [
+        "Counts registry notifications; PERF-007 adds console DOM mutation and paint counters."
+      ],
+      "longTasks": [],
+      "passed": true,
+      "timings": {
+        "maxMs": 0.206,
+        "p50Ms": 0.003,
+        "p95Ms": 0.005,
+        "sampleCount": 1000,
+        "totalMs": 3.358
+      }
+    },
+    {
+      "name": "writable-sync-memory",
+      "workload": {
+        "bytesPerFile": 65536,
+        "files": 500,
+        "referenceFiles": 500,
+        "referenceTotalBytes": 1073741824,
+        "sampledTotalBytes": 32768000
+      },
+      "memory": {
+        "beforeBytes": 33450729,
+        "peakBytes": 87194049,
+        "afterGcBytes": 69734473,
+        "peakWorkingBytes": 53743320,
+        "retainedBytes": 36283744
+      },
+      "metrics": {
+        "maxTaskMs": 201.248,
+        "peakWorkingBytes": 53743320
+      },
+      "budgets": [
+        {
+          "metric": "peakWorkingBytes",
+          "limit": 16842752,
+          "unit": "bytes",
+          "description": "Largest file plus fixed sync overhead",
+          "actual": 53743320,
+          "passed": false
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Conservative main-thread sync task proxy",
+          "actual": 201.248,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "manifestWrites": 1,
+        "vaultReads": 500,
+        "uploadedFiles": 500
+      },
+      "notes": [
+        "Standard mode samples all 500 files at 64 KiB each; reference mode allocates the full 1 GiB workload and should be run only on a suitable machine.",
+        "The duration is a conservative long-task proxy until PERF-008 adds checksum-worker instrumentation."
+      ],
+      "longTasks": [
+        {
+          "durationMs": 201.248,
+          "sample": 0
+        }
+      ],
+      "passed": false,
+      "timings": {
+        "maxMs": 201.248,
+        "p50Ms": 201.248,
+        "p95Ms": 201.248,
+        "sampleCount": 1,
+        "totalMs": 201.248
+      }
+    },
+    {
+      "name": "export-preparation",
+      "workload": {
+        "pages": 20,
+        "referenceNotebookPages": 20,
+        "source": "generated-one-pixel-png-with-sanitized-text"
+      },
+      "memory": {
+        "beforeBytes": 33501209,
+        "peakBytes": 58957148,
+        "afterGcBytes": 39167659,
+        "peakWorkingBytes": 25455939,
+        "retainedBytes": 5666450
+      },
+      "metrics": {
+        "maxTaskMs": 111.177,
+        "preparationMs": 111.177
+      },
+      "budgets": [
+        {
+          "metric": "preparationMs",
+          "limit": 10000,
+          "unit": "ms",
+          "description": "Twenty-page native export preparation",
+          "actual": 111.177,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Conservative export long-task proxy",
+          "actual": 111.177,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "outputBytes": 567018
+      },
+      "notes": [
+        "The fixture isolates PDF preparation overhead; PERF-010 and PERF-011 add full-size render-pipeline working-memory counters."
+      ],
+      "longTasks": [
+        {
+          "durationMs": 111.177,
+          "sample": 0
+        }
+      ],
+      "passed": false,
+      "timings": {
+        "maxMs": 111.177,
+        "p50Ms": 111.177,
+        "p95Ms": 111.177,
+        "sampleCount": 1,
+        "totalMs": 111.177
+      }
+    }
+  ],
+  "passed": false
+}

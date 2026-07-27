@@ -1,0 +1,9 @@
+{
+  "id": "supernote-cloud-sync",
+  "name": "Supernote Cloud Sync",
+  "version": "1.0.0-beta.1",
+  "minAppVersion": "1.7.2",
+  "description": "Mirror Supernote Cloud files, optionally send files back, and export notebook pages.",
+  "author": "raaneem",
+  "isDesktopOnly": false
+}

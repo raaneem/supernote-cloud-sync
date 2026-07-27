@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-011",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "pages": 20,
+    "nativeWidth": 1920,
+    "nativeHeight": 2560,
+    "pngChannels": 3,
+    "coldActivationProcesses": 10
+  },
+  "before": {
+    "bundleRawBytes": 4971646,
+    "bundleGzipBytes": 2111703,
+    "desktopActivationP95Ms": 28.667,
+    "desktopStartupMaxTaskMs": 28.329,
+    "mobileActivationP95Ms": 27.051,
+    "mobileStartupMaxTaskMs": 26.641,
+    "pdfPreparationMs": 3345.207,
+    "pdfMaxTaskMs": 1725.956,
+    "pdfPeakBeyondFinalBytes": 311915800,
+    "pdfPeakProducerPages": 1
+  },
+  "after": {
+    "bundleRawBytes": 3254679,
+    "bundleGzipBytes": 1785224,
+    "bundleBrotliBytes": 1637656,
+    "fontCompressedBytes": 1147598,
+    "fontDecodedBytes": 2488860,
+    "desktopActivationP95Ms": 15.005,
+    "desktopStartupMaxTaskMs": 14.667,
+    "mobileActivationP95Ms": 15.644,
+    "mobileStartupMaxTaskMs": 15.333,
+    "desktopPdfPreparationMs": 2370.447,
+    "desktopPdfMaxTaskMs": 22.594,
+    "desktopPdfFirstUseMaxTaskMs": 11.677,
+    "mobilePdfPreparationMs": 2348.81,
+    "mobilePdfMaxTaskMs": 23.478,
+    "mobilePdfFirstUseMaxTaskMs": 9.965,
+    "pdfPeakBeyondFinalBytes": 73557340,
+    "pdfRetainedBeyondFinalBytes": 8931089,
+    "pdfPeakProducerPages": 1,
+    "minimumInkPixelsPerPage": 102178,
+    "pdfOutputBytes": 2853840,
+    "mainPakoVersions": [],
+    "workerPakoVersions": [
+      "1.0.11"
+    ]
+  },
+  "notes": [
+    "The before PDF measurement used pdf-lib's eager native RGBA decode and save-time embedding after sequential page handoff.",
+    "The PDF-only notebook-worker mode produces opaque RGB PNGs with the platform deflate stream while ordinary PNG exports retain their byte-identical RGBA path. The one-shot PDF worker embeds the RGB Flate stream directly and retains pdf-lib's compatible fallback for other PNG color types.",
+    "Font files are gzip-compressed at build time, decoded only on first PDF use, and subset in exported PDFs.",
+    "The after pipeline creates and encodes a distinct handwriting-like native RGBA page with at least 102,178 inked pixels for every PDF page and polls memory throughout encode and embed.",
+    "The production-bundle first-use harness measures lazy client import, inline-worker Blob construction, and a 256 KiB first-page transport through a protocol stub. Browser worker readiness remains part of real-device validation.",
+    "The mobile figures are the mobile budget contract measured on the recorded local Apple M4 Pro environment, not a physical mobile-device profile; real-device validation remains outstanding."
+  ]
+}

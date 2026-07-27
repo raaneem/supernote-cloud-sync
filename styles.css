@@ -1,0 +1,1109 @@
+.supernote-sync-muted {
+  color: var(--text-muted);
+}
+
+.supernote-sync-error {
+  color: var(--text-error);
+}
+
+.supernote-sync-file-row {
+  align-items: center;
+  border-radius: var(--radius-s);
+  display: flex;
+  gap: var(--size-4-2);
+  min-height: 44px;
+  padding: var(--size-4-2);
+  width: 100%;
+}
+
+.supernote-sync-file-row:hover,
+.supernote-sync-file-row:focus-visible {
+  background: var(--background-modifier-hover);
+  outline: none;
+}
+
+.supernote-sync-file-icon {
+  color: var(--text-muted);
+  display: inline-flex;
+}
+
+.supernote-sync-file-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supernote-sync-status {
+  background: var(--background-modifier-hover);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+  margin-left: auto;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
+.supernote-sync-status.is-update-available {
+  color: var(--text-warning);
+}
+
+.supernote-sync-status.is-mirrored,
+.supernote-sync-status.is-included,
+.supernote-sync-status.is-writable-sync {
+  color: var(--text-success);
+}
+
+.supernote-sync-status.is-error {
+  color: var(--text-error);
+}
+
+.supernote-sync-browser-modal {
+  height: min(620px, calc(100vh - 64px));
+  max-height: none;
+  max-width: none;
+  width: min(720px, calc(100vw - 48px));
+}
+
+.supernote-sync-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.supernote-sync-browser-header {
+  flex: none;
+}
+
+.supernote-sync-browser-header h2 {
+  margin-block: 0 var(--size-4-3);
+}
+
+.supernote-sync-browser-navigation {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-3);
+  justify-content: space-between;
+  margin-block-end: var(--size-4-2);
+  min-width: 0;
+}
+
+.supernote-sync-browser-breadcrumbs {
+  align-items: center;
+  display: flex;
+  flex: 1;
+  gap: var(--size-4-1);
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.supernote-sync-browser-breadcrumb {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  color: var(--text-muted);
+  flex: none;
+  font: inherit;
+  height: auto;
+  line-height: var(--line-height-normal);
+  min-height: 0;
+  padding: 0;
+}
+
+.supernote-sync-browser-breadcrumb:hover,
+.supernote-sync-browser-breadcrumb:focus-visible {
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-normal);
+}
+
+.supernote-sync-browser-breadcrumb.is-current {
+  color: var(--text-normal);
+}
+
+.supernote-sync-browser-breadcrumb-root {
+  flex: none;
+}
+
+.supernote-sync-browser-breadcrumb-separator {
+  color: var(--text-faint);
+  flex: none;
+}
+
+.supernote-sync-browser-current-action {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--size-4-2);
+  justify-content: flex-end;
+}
+
+.supernote-sync-browser-progress {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  color: var(--text-muted);
+  flex: none;
+  margin-block-end: var(--size-4-2);
+  padding: var(--size-4-2);
+}
+
+.supernote-sync-browser-list {
+  border-block-start: 1px solid var(--background-modifier-border);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-block-start: var(--size-4-2);
+  width: 100%;
+}
+
+.supernote-sync-file-primary {
+  align-items: center;
+  color: var(--text-normal);
+  cursor: pointer;
+  display: flex;
+  flex: 1;
+  gap: var(--size-4-2);
+  justify-content: flex-start;
+  min-width: 0;
+  padding: var(--size-4-1) 0;
+  text-align: start;
+}
+
+.supernote-sync-file-primary:focus-visible {
+  outline: 2px solid var(--background-modifier-border-focus);
+  outline-offset: 2px;
+}
+
+.supernote-sync-file-controls {
+  align-items: center;
+  display: flex;
+  flex: none;
+  gap: var(--size-4-2);
+  margin-inline-start: auto;
+}
+
+.supernote-sync-file-controls .supernote-sync-status,
+.supernote-sync-browser-current-action .supernote-sync-status {
+  margin-left: 0;
+}
+
+.supernote-sync-browser-load-error {
+  align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-4-2);
+  padding: var(--size-4-3);
+}
+
+.supernote-sync-browser-load-error p {
+  margin: 0;
+}
+
+.supernote-sync-confirm-actions {
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: flex-end;
+  margin-block-start: var(--size-4-4);
+}
+
+.supernote-sync-mirror-tree-indicator {
+  color: var(--text-muted);
+  display: inline-flex;
+  flex: none;
+  margin-inline-start: auto;
+  padding-inline-start: var(--size-4-2);
+}
+
+@media (max-width: 600px) {
+  .supernote-sync-browser-modal {
+    height: calc(100vh - 24px);
+    width: calc(100vw - 16px);
+  }
+
+  .supernote-sync-file-row {
+    align-items: flex-start;
+  }
+
+  .supernote-sync-file-controls {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+}
+
+.supernote-note-view {
+  --supernote-reader-surface: var(--background-primary);
+  --supernote-reader-chrome: color-mix(
+    in srgb,
+    var(--background-secondary) 72%,
+    transparent
+  );
+  --supernote-reader-text: var(--text-normal);
+  --supernote-reader-text-muted: var(--text-muted);
+  background: var(--supernote-reader-surface);
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  position: relative;
+}
+
+.supernote-reader-staging {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  visibility: hidden;
+}
+
+.supernote-reader {
+  background: var(--supernote-reader-surface);
+  color: var(--supernote-reader-text);
+  height: 100%;
+  min-height: 320px;
+  overflow: hidden;
+  position: relative;
+  touch-action: pan-x pan-y;
+  width: 100%;
+}
+
+.supernote-reader:focus {
+  outline: none;
+}
+
+.supernote-reader-viewport {
+  height: 100%;
+  overflow: hidden;
+  touch-action: pan-y;
+  width: 100%;
+}
+
+.supernote-reader-viewport.is-zoomed {
+  touch-action: none;
+}
+
+.supernote-reader-track {
+  display: flex;
+  height: 100%;
+  transform: translate3d(-100%, 0, 0);
+  width: 100%;
+}
+
+.supernote-reader-track.is-interacting,
+.supernote-reader-track.is-animating {
+  will-change: transform;
+}
+
+.supernote-reader-track.is-animating {
+  transition: transform var(--supernote-reader-slide-duration, 150ms) ease-out;
+}
+
+.supernote-reader-surface {
+  align-items: center;
+  display: flex;
+  flex: 0 0 100%;
+  height: 100%;
+  justify-content: center;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.supernote-reader-canvas {
+  aspect-ratio: var(--supernote-page-aspect-ratio, 3 / 4);
+  background: white;
+  height: calc(100% - 32px);
+  max-height: calc(100% - 32px);
+  max-width: calc(100% - 32px);
+  object-fit: contain;
+  transform-origin: center;
+  transition: opacity 120ms ease;
+  width: auto;
+}
+
+.theme-dark .supernote-reader-canvas,
+.theme-dark .supernote-reader-thumbnail canvas,
+.theme-dark .supernote-generated-preview img.supernote-page-reader-trigger {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+.supernote-reader-canvas.is-transforming {
+  will-change: transform;
+}
+
+.supernote-reader-canvas.is-zoom-animating {
+  transition:
+    opacity 120ms ease,
+    transform 150ms ease-out;
+}
+
+.supernote-reader.is-motion-active .supernote-reader-bottombar {
+  backdrop-filter: none;
+}
+
+.supernote-reader-surface.is-loading .supernote-reader-canvas {
+  opacity: 0.45;
+}
+
+.supernote-reader-surface.is-loading::after {
+  color: var(--supernote-reader-text-muted);
+  content: "Loading…";
+  font-size: var(--font-ui-small);
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.supernote-reader-surface.is-empty .supernote-reader-canvas {
+  display: none;
+}
+
+.supernote-reader-surface.is-error::after {
+  color: var(--text-error);
+  content: "Could not render page";
+}
+
+.supernote-reader-chrome {
+  inset: 0;
+  pointer-events: none;
+  position: absolute;
+  transition:
+    opacity 180ms ease,
+    visibility 0s linear;
+  visibility: visible;
+  z-index: 2;
+}
+
+.supernote-reader.is-chrome-hidden .supernote-reader-chrome {
+  opacity: 0;
+  transition:
+    opacity 180ms ease,
+    visibility 0s linear 180ms;
+  visibility: hidden;
+}
+
+.supernote-reader.is-chrome-hidden .supernote-reader-bottombar,
+.supernote-reader.is-chrome-hidden .supernote-reader-zoom-control {
+  pointer-events: none;
+}
+
+.supernote-reader-bottombar,
+.supernote-reader-zoom-control {
+  align-items: center;
+  backdrop-filter: blur(14px);
+  background: var(--supernote-reader-chrome);
+  display: flex;
+  gap: var(--size-4-2);
+  min-height: 52px;
+  padding: var(--size-4-2) var(--size-4-3);
+  pointer-events: auto;
+  position: absolute;
+}
+
+.supernote-reader-bottombar {
+  bottom: var(--size-4-3);
+  border-radius: var(--radius-l);
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.supernote-reader-zoom-control {
+  border-radius: var(--radius-l);
+  bottom: var(--size-4-3);
+  direction: ltr;
+  right: var(--size-4-3);
+}
+
+.supernote-reader-zoom-button,
+.supernote-reader-zoom-value {
+  align-items: center;
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+}
+
+.supernote-reader-zoom-button {
+  min-width: 44px;
+}
+
+.supernote-reader-zoom-value {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  min-width: 58px;
+  padding: 0 var(--size-4-1);
+}
+
+.supernote-reader-zoom-value:hover,
+.supernote-reader-zoom-value:focus-visible {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+}
+
+.supernote-reader-icon {
+  color: inherit;
+}
+
+.supernote-reader-counter {
+  min-width: 72px;
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .supernote-reader-zoom-control {
+    bottom: calc(var(--size-4-3) + 60px);
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+  }
+}
+
+.supernote-reader.is-grid {
+  background: var(--supernote-reader-surface);
+  color: var(--supernote-reader-text);
+  overflow: hidden;
+}
+
+.supernote-reader-grid {
+  contain: strict;
+  height: 100%;
+  overflow: auto;
+  position: relative;
+}
+
+.supernote-reader-grid-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.supernote-reader-grid-window {
+  contain: layout paint style;
+  display: grid;
+  gap: 12px;
+  left: 12px;
+  position: absolute;
+  right: 12px;
+}
+
+.supernote-reader-thumbnail {
+  background: var(--background-secondary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-m);
+  color: var(--text-normal);
+  cursor: pointer;
+  display: grid;
+  gap: var(--size-4-2);
+  grid-template-rows: minmax(0, 1fr) auto;
+  height: var(--supernote-reader-grid-card-height);
+  padding: var(--size-4-2);
+  position: relative;
+}
+
+.supernote-reader-thumbnail:hover,
+.supernote-reader-thumbnail:focus-visible {
+  background: var(--background-modifier-hover);
+  outline: none;
+}
+
+.supernote-reader-thumbnail.is-current {
+  box-shadow: 0 0 0 2px var(--interactive-accent);
+}
+
+.supernote-reader-thumbnail canvas {
+  aspect-ratio: 3 / 4;
+  background: white;
+  border-radius: var(--radius-s);
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  width: 100%;
+}
+
+.supernote-reader-thumbnail-check {
+  align-items: center;
+  background: var(--interactive-accent);
+  border-radius: 999px;
+  color: var(--text-on-accent);
+  display: none;
+  height: 26px;
+  justify-content: center;
+  position: absolute;
+  right: var(--size-4-3);
+  top: var(--size-4-3);
+  width: 26px;
+}
+
+.supernote-reader.is-selecting .supernote-reader-thumbnail-check {
+  display: flex;
+  opacity: 0.25;
+}
+
+.supernote-reader-thumbnail.is-selected {
+  border-color: var(--interactive-accent);
+}
+
+.supernote-reader-thumbnail.is-selected .supernote-reader-thumbnail-check {
+  opacity: 1;
+}
+
+.supernote-reader-toolbar-action {
+  position: relative;
+}
+
+.supernote-reader-toolbar-action[hidden] {
+  display: none;
+}
+
+.supernote-reader-toolbar-action.is-disabled {
+  opacity: var(--icon-opacity, 0.45);
+}
+
+.supernote-reader-action-badge {
+  align-items: center;
+  background: var(--interactive-accent);
+  border: 1px solid var(--background-primary);
+  border-radius: 999px;
+  color: var(--text-on-accent);
+  display: flex;
+  font-size: 9px;
+  font-weight: var(--font-semibold);
+  height: 15px;
+  justify-content: center;
+  line-height: 1;
+  min-width: 15px;
+  padding: 0 3px;
+  position: absolute;
+  right: -3px;
+  top: -3px;
+}
+
+body.supernote-mobile-reader-active .mobile-navbar {
+  --supernote-hidden-navbar-transform: translateY(
+    calc(var(--navbar-height) + var(--navbar-bottom-offset))
+  );
+  opacity: 0;
+  pointer-events: none;
+  transform: var(--supernote-hidden-navbar-transform);
+  visibility: hidden;
+}
+
+.supernote-page-reader-trigger {
+  cursor: pointer;
+}
+
+.supernote-embed-frame {
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  margin: var(--size-4-4) 0;
+  max-width: 100%;
+  overflow: hidden;
+  width: fit-content;
+}
+
+.supernote-embed-frame.has-explicit-width {
+  width: min(100%, var(--supernote-embed-width));
+}
+
+.supernote-embed-header {
+  align-items: center;
+  background: #1b1d20;
+  color: #c7cbd1;
+  display: flex;
+  font-size: var(--font-ui-small);
+  gap: var(--size-4-2);
+  justify-content: space-between;
+  min-height: 2.25rem;
+  padding: var(--size-4-1) var(--size-4-3);
+}
+
+.supernote-embed-title {
+  color: #f2f4f7;
+  font-weight: var(--font-semibold);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supernote-embed-page {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.supernote-embed-header-controls {
+  align-items: center;
+  display: flex;
+  gap: var(--size-4-1);
+}
+
+.supernote-embed-header-controls button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  color: #c7cbd1;
+  display: inline-flex;
+  font-size: 1.15rem;
+  height: 1.5rem;
+  justify-content: center;
+  padding: 0;
+  width: 1.5rem;
+}
+
+.supernote-embed-header-controls button:hover:not(:disabled),
+.supernote-embed-header-controls button:focus-visible {
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+}
+
+.supernote-embed-header-controls button:disabled {
+  opacity: 0.32;
+}
+
+.supernote-embed-surface {
+  align-items: center;
+  aspect-ratio: 3 / 4;
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  cursor: zoom-in;
+  display: flex;
+  height: min(72vh, 760px);
+  justify-content: center;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  text-decoration: none;
+  width: auto;
+}
+
+.supernote-embed-frame.has-explicit-width .supernote-embed-surface {
+  height: auto;
+  width: 100%;
+}
+
+.supernote-embed-frame.has-explicit-height .supernote-embed-surface {
+  height: var(--supernote-embed-height);
+  width: 100%;
+}
+
+.supernote-embed-surface:focus-visible {
+  box-shadow: 0 0 0 2px var(--background-modifier-border-focus);
+  outline: none;
+}
+
+.supernote-fixed-page-canvas,
+.supernote-notebook-canvas {
+  background: white;
+  display: block;
+  height: 100%;
+  object-fit: contain;
+  width: 100%;
+}
+
+.supernote-fixed-page-canvas[hidden],
+.supernote-notebook-canvas[hidden] {
+  display: none;
+}
+
+.theme-dark .supernote-fixed-page-canvas,
+.theme-dark .supernote-notebook-canvas {
+  filter: invert(0.88) hue-rotate(180deg);
+}
+
+.supernote-fixed-page-status {
+  max-width: min(34rem, calc(100% - var(--size-4-6)));
+  text-align: center;
+}
+
+.supernote-fixed-page-embed[data-state="loading"]
+  .supernote-fixed-page-status::before {
+  animation: supernote-run-spin 900ms linear infinite;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 50%;
+  border-top-color: var(--interactive-accent);
+  content: "";
+  display: inline-block;
+  height: 14px;
+  margin-right: var(--size-4-2);
+  vertical-align: -2px;
+  width: 14px;
+}
+
+.supernote-fixed-page-embed[data-state="unavailable"] {
+  width: min(26rem, 100%);
+}
+
+.supernote-fixed-page-embed[data-state="unavailable"]
+  .supernote-fixed-page-surface {
+  aspect-ratio: auto;
+  cursor: pointer;
+  height: auto;
+  min-height: 6rem;
+  padding: var(--size-4-4);
+  width: 100%;
+}
+
+.supernote-embed-caption {
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  font-size: var(--font-ui-small);
+  padding: var(--size-4-2) var(--size-4-3);
+}
+
+.supernote-notebook-surface {
+  touch-action: pan-y;
+}
+
+.supernote-notebook-canvas {
+  transition:
+    opacity 120ms ease,
+    transform 80ms ease-out;
+}
+
+.supernote-notebook-status {
+  left: 50%;
+  max-width: min(34rem, calc(100% - var(--size-4-6)));
+  position: absolute;
+  text-align: center;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.supernote-notebook-embed[data-state="loading"] .supernote-notebook-canvas {
+  opacity: 0.55;
+}
+
+.supernote-notebook-embed[data-state="loading"]
+  .supernote-notebook-status::before {
+  animation: supernote-run-spin 900ms linear infinite;
+  border: 2px solid var(--background-modifier-border);
+  border-radius: 50%;
+  border-top-color: var(--interactive-accent);
+  content: "";
+  display: inline-block;
+  height: 14px;
+  margin-right: var(--size-4-2);
+  vertical-align: -2px;
+  width: 14px;
+}
+
+.supernote-notebook-embed[data-state="error"] .supernote-notebook-status {
+  background: color-mix(in srgb, var(--background-primary) 88%, transparent);
+  border-radius: var(--radius-s);
+  color: var(--text-error);
+  padding: var(--size-4-2);
+}
+
+.cm-editor .supernote-live-preview-widget {
+  display: inline-block;
+  font-family: var(--font-interface);
+  margin: 0;
+  padding: var(--size-4-4) 0;
+  vertical-align: top;
+  white-space: normal;
+  width: 100%;
+}
+
+.supernote-run-status-item {
+  align-items: center;
+  cursor: pointer;
+  display: inline-flex;
+  gap: 3px;
+}
+
+.supernote-run-status-item.is-running .supernote-run-state svg {
+  animation: supernote-run-spin 1s linear infinite;
+}
+
+.supernote-run-status-item.is-failure .supernote-run-state {
+  color: var(--text-error);
+}
+
+.supernote-run-status-item.is-success .supernote-run-state {
+  color: var(--text-success);
+}
+
+.supernote-run-brand,
+.supernote-run-state {
+  align-items: center;
+  display: inline-flex;
+}
+
+.supernote-run-brand svg {
+  height: 14px;
+  width: 14px;
+}
+
+.supernote-run-state svg {
+  height: 14px;
+  width: 14px;
+}
+
+.supernote-run-count,
+.supernote-run-label {
+  font-size: var(--font-ui-smaller);
+}
+
+.supernote-run-count {
+  font-variant-numeric: tabular-nums;
+}
+
+.supernote-run-label {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supernote-run-popover {
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  box-shadow: var(--shadow-l);
+  max-height: min(70vh, 640px);
+  max-width: calc(100vw - 16px);
+  overflow: auto;
+  padding: var(--size-4-3);
+  position: fixed;
+  width: min(480px, calc(100vw - 16px));
+  z-index: var(--layer-popover);
+}
+
+.supernote-run-popover-heading {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  margin-bottom: var(--size-4-3);
+}
+
+.supernote-run-console {
+  display: grid;
+  gap: var(--size-4-3);
+}
+
+.supernote-run-empty {
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.supernote-pair-conflicts {
+  background: var(--background-secondary);
+  border: 1px solid var(--color-orange);
+  border-radius: var(--radius-s);
+  display: grid;
+  gap: var(--size-4-2);
+  padding: var(--size-4-3);
+}
+
+.supernote-pair-conflicts h3,
+.supernote-pair-conflicts p {
+  margin: 0;
+}
+
+.supernote-pair-conflict {
+  border-top: 1px solid var(--background-modifier-border);
+  display: grid;
+  gap: var(--size-4-1);
+  padding-top: var(--size-4-2);
+}
+
+.supernote-pair-conflict-path {
+  font-weight: var(--font-semibold);
+  overflow-wrap: anywhere;
+}
+
+.supernote-pair-conflict-kind {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.supernote-pair-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-1);
+}
+
+.supernote-run {
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2);
+}
+
+.supernote-run.is-failed,
+.supernote-run.is-timed-out,
+.supernote-run.is-cancelled {
+  border-color: var(--color-red);
+}
+
+.supernote-run summary {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--size-4-2);
+  justify-content: space-between;
+}
+
+.supernote-run-title {
+  display: grid;
+  font-weight: var(--font-semibold);
+  min-width: 0;
+}
+
+.supernote-run-kind,
+.supernote-run-meta,
+.supernote-run-batch {
+  color: var(--text-muted);
+  font-size: var(--font-ui-smaller);
+}
+
+.supernote-run-kind {
+  font-weight: var(--font-normal);
+}
+
+.supernote-run-status {
+  align-items: center;
+  display: inline-flex;
+  flex: none;
+  gap: 3px;
+  text-transform: capitalize;
+}
+
+.supernote-run-status svg {
+  height: var(--icon-xs);
+  width: var(--icon-xs);
+}
+
+.supernote-run-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+
+.supernote-run-actions {
+  display: flex;
+  gap: var(--size-4-2);
+  margin-top: var(--size-4-2);
+}
+
+.supernote-run-batch {
+  margin-top: var(--size-4-2);
+  overflow-wrap: anywhere;
+}
+
+.supernote-run-log {
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  margin: var(--size-4-2) 0 0;
+  max-height: 260px;
+  overflow: auto;
+  padding: var(--size-4-2);
+  white-space: pre-wrap;
+}
+
+.supernote-settings-flow {
+  max-height: min(86vh, 820px);
+  width: min(720px, calc(100vw - 32px));
+}
+
+.supernote-settings-flow-content {
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  overflow: hidden;
+}
+
+.supernote-settings-flow-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: var(--size-4-1);
+}
+
+.supernote-settings-flow textarea {
+  min-height: 88px;
+  width: min(360px, 100%);
+}
+
+.supernote-settings-flow.is-mobile {
+  border-radius: 0;
+  height: 100dvh;
+  max-height: none;
+  max-width: none;
+  padding-top: max(
+    var(--size-4-4),
+    calc(var(--safe-area-inset-top) + var(--size-4-2))
+  );
+  width: 100vw;
+}
+
+.supernote-settings-flow.is-mobile .modal-close-button {
+  top: calc(var(--safe-area-inset-top) + var(--size-4-2));
+}
+
+.supernote-settings-flow.is-mobile .setting-item {
+  align-items: stretch;
+  flex-direction: column;
+}
+
+.supernote-settings-flow.is-mobile .setting-item-control {
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  margin-top: var(--size-4-2);
+}
+
+.supernote-settings-flow.is-mobile input,
+.supernote-settings-flow.is-mobile select,
+.supernote-settings-flow.is-mobile textarea {
+  width: 100%;
+}
+
+@keyframes supernote-run-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 600px) {
+  .supernote-settings-flow {
+    border-radius: 0;
+    height: 100dvh;
+    max-height: none;
+    max-width: none;
+    width: 100vw;
+  }
+
+  .supernote-settings-flow .setting-item {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .supernote-settings-flow .setting-item-control {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    margin-top: var(--size-4-2);
+  }
+
+  .supernote-settings-flow input,
+  .supernote-settings-flow select,
+  .supernote-settings-flow textarea {
+    width: 100%;
+  }
+
+  .supernote-reader-canvas {
+    max-height: calc(100% - 16px);
+    max-width: calc(100% - 8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .supernote-reader-track {
+    transition: none !important;
+  }
+}

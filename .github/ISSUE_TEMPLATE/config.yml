@@ -1,0 +1,9 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/raaneem/supernote-cloud-sync/security/advisories/new
+    about:
+      Report suspected vulnerabilities privately instead of opening an issue.
+  - name: Report a code of conduct violation
+    url: https://github.com/raaneem/supernote-cloud-sync/security/advisories/new
+    about: Start the private report title with "Conduct:".

@@ -1,0 +1,62 @@
+{
+  "name": "supernote-cloud-sync",
+  "version": "1.0.0-beta.1",
+  "description": "Supernote Cloud mirror, optional Paired folder, and one-shot exports for Obsidian",
+  "type": "module",
+  "main": "main.js",
+  "license": "GPL-3.0-or-later",
+  "packageManager": "pnpm@10.18.1",
+  "scripts": {
+    "build": "pnpm run typecheck && pnpm run build:bundle",
+    "build:bundle": "node esbuild.config.mjs production",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit",
+    "dev": "node esbuild.config.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "contributor-docs:check": "node scripts/check-contributor-docs.mjs",
+    "licenses:check": "node scripts/check-licenses.mjs",
+    "obsidian-api:check": "node scripts/audit-obsidian-api.mjs",
+    "verify-release": "node scripts/verify-release-version.mjs",
+    "perf": "node --expose-gc --import tsx benchmarks/run.ts",
+    "prototype:export-sheet": "python3 -m http.server 4173 --directory prototypes/export-sheet",
+    "check": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run test && pnpm run build:bundle && pnpm run contributor-docs:check && pnpm run licenses:check && pnpm run obsidian-api:check"
+  },
+  "dependencies": {
+    "@expo-google-fonts/noto-sans": "0.4.2",
+    "@expo-google-fonts/noto-sans-symbols-2": "0.4.1",
+    "@pdf-lib/fontkit": "1.1.1",
+    "marked": "18.0.7",
+    "pako": "1.0.11",
+    "pdf-lib": "1.17.1",
+    "spark-md5": "3.0.2",
+    "supernote-typescript": "0.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.32.0",
+    "@types/node": "24.1.0",
+    "@types/pako": "2.0.4",
+    "@types/spark-md5": "3.0.5",
+    "builtin-modules": "5.0.0",
+    "esbuild": "0.25.8",
+    "eslint": "9.32.0",
+    "eslint-config-prettier": "10.1.8",
+    "fast-png": "6.4.0",
+    "globals": "16.3.0",
+    "obsidian": "1.8.7",
+    "pdfjs-dist": "5.4.624",
+    "prettier": "3.6.2",
+    "tslib": "2.8.1",
+    "tsx": "4.20.3",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.38.0",
+    "vitest": "3.2.4"
+  },
+  "pnpm": {
+    "overrides": {
+      "supernote-typescript@0.3.0>image-js": "-"
+    }
+  }
+}

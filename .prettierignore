@@ -1,0 +1,8 @@
+benchmarks/baselines/
+benchmarks/private/
+benchmarks/results/
+data.json
+main.js
+*.js.map
+node_modules/
+pnpm-lock.yaml

@@ -1,0 +1,51 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-005",
+  "recordedAt": "2026-07-25",
+  "workload": {
+    "nativePageWidth": 1920,
+    "nativePageHeight": 2560,
+    "pagerWindows": 10,
+    "gridThumbnails": 40,
+    "rapidGridCloseThumbnails": 40
+  },
+  "before": {
+    "workerDecodedPageEntryLimit": 8,
+    "estimatedWorkerDecodedBytes": 157286400,
+    "displayBitmapBudgetBytes": null,
+    "thumbnailBitmapBudgetBytes": null,
+    "renderConcurrencyLimit": null,
+    "queueLimit": null
+  },
+  "after": {
+    "desktopBudgetBytes": 134217728,
+    "mobileBudgetBytes": 100663296,
+    "retainedDecodedBytesBetweenRenders": 0,
+    "desktopMaxConcurrentRenders": 2,
+    "mobileMaxConcurrentRenders": 1,
+    "estimatedParsedMetadataBytes": 512000,
+    "estimatedDescriptorMetadataBytes": 256000,
+    "peakTrackedBytes": 67090432,
+    "releasedTrackedBytes": 0,
+    "desktopCachedFlipP95Ms": 0.125,
+    "mobileContractCachedFlipP95Ms": 0.118,
+    "desktopQueueHighWater": 38,
+    "mobileQueueHighWater": 39,
+    "cancelledRapidGridRenders": 40
+  },
+  "privateDesktopCorroboration": {
+    "fixtureRecordedAs": "private-note",
+    "sampledPages": 1,
+    "uncachedNativeRenderMs": 160.659,
+    "peakWorkingBytes": 66235832,
+    "retainedDecodedBytesBetweenRenders": 0,
+    "retainedParsedBytesWhileOpen": 12138,
+    "retainedParsedBytesAfterClose": 0,
+    "retainedSourceBytesAfterClose": 0
+  },
+  "notes": [
+    "The generated resource contract uses native dimensions without retaining personal notebook content.",
+    "The mobile row validates the configured 96 MiB and single-render contract on the desktop harness; real-device RSS and lifecycle verification remains an outstanding acceptance check.",
+    "The private fixture path and content are intentionally absent."
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-007",
+  "recordedAt": "2026-07-26",
+  "workload": {
+    "generatedLines": 1000,
+    "retainedLogBudgetBytes": 262144,
+    "simulatedLinesPerFrame": 16
+  },
+  "before": {
+    "source": "2026-07-25-desktop.json",
+    "appendP95Ms": 0.005,
+    "maxTaskMs": 0.206,
+    "registryNotifications": 1002,
+    "statusDomMutations": 1002,
+    "detailsTreeRebuilds": 1002,
+    "fullRetainedLogEncodes": 1000,
+    "fullRetainedLogCopies": 1000,
+    "retainedBytesAfterGc": 1047432
+  },
+  "after": {
+    "appendP95Ms": 0.003,
+    "maxTaskMs": 0.137,
+    "logSignals": 1000,
+    "animationFrameRequests": 63,
+    "logDomAppends": 63,
+    "metadataReconciles": 2,
+    "statusDomMutations": 2,
+    "detailsTreeRebuilds": 0,
+    "fullLogJoins": 1,
+    "retainedLogBytes": 30900,
+    "retainedBytesAfterGc": 0,
+    "longTasks": 0
+  },
+  "notes": [
+    "The old console and status subscribers both reacted to every generic notification; an open console rebuilt every retained run tree and reread layout after each line.",
+    "The new benchmark drives the production sequenced log and frame-paint scheduler. Metadata flushes pending paint synchronously before completion or failure reconciliation.",
+    "The one full-log join is explicit benchmark inspection, matching the copy-log and export-only production contract."
+  ]
+}

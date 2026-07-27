@@ -1,0 +1,8 @@
+# Keep these rules unanchored so they protect both this workspace and the
+# plugin-only release repository.
+node_modules/
+main.js
+*.js.map
+data.json
+**/benchmarks/private/
+**/benchmarks/results/

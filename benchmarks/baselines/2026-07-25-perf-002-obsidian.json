@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T16:22:29Z",
+  "application": {
+    "name": "Obsidian",
+    "version": "1.12.7",
+    "platform": "desktop"
+  },
+  "plugin": {
+    "id": "supernote-cloud-sync",
+    "version": "0.1.0",
+    "bundle": "production",
+    "restoredEnabled": true
+  },
+  "method": {
+    "cycles": 5,
+    "description": "Measure actual Obsidian plugin-manager disable and enable calls in the open application. Wait 25 ms between state changes. Do not read or record vault content.",
+    "limitation": "This is an in-app enabled/disabled activation control, not a full cold application launch."
+  },
+  "metrics": {
+    "disableP95Ms": 2.5,
+    "enableP95Ms": 17.8
+  },
+  "samples": [
+    {
+      "disableMs": 2.5,
+      "enableMs": 17.8
+    },
+    {
+      "disableMs": 0.3,
+      "enableMs": 9.6
+    },
+    {
+      "disableMs": 0.5,
+      "enableMs": 10.6
+    },
+    {
+      "disableMs": 0.4,
+      "enableMs": 10.6
+    },
+    {
+      "disableMs": 0.3,
+      "enableMs": 10.7
+    }
+  ]
+}

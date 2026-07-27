@@ -1,0 +1,51 @@
+name: Feature request
+description: Propose an improvement to Supernote Cloud Sync
+title: "[Feature]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Describe the user problem before the proposed implementation. Please search existing issues first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description:
+        What workflow is difficult or impossible today, and who does it affect?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should a user be able to accomplish?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description:
+        Describe an approach if you have one. It is fine to leave implementation
+        details open.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Note current workarounds or other approaches you considered.
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Add sanitized examples, mockups, or related public issues.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I searched for an existing issue that covers this request.
+          required: true
+        - label:
+            I removed credentials, tokens, private notebook content, and
+            personal paths.
+          required: true

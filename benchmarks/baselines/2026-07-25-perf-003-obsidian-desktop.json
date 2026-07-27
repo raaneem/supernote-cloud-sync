@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T16:56:58Z",
+  "application": {
+    "name": "Obsidian",
+    "version": "1.12.7",
+    "platform": "desktop"
+  },
+  "plugin": {
+    "id": "supernote-cloud-sync",
+    "version": "0.1.0",
+    "bundle": "production",
+    "restoredEnabled": true
+  },
+  "method": {
+    "description": "Reload the development plugin in Obsidian, open the first locally available .note through NotebookService, render page one at 0.1 scale, close the final lease, and inspect public lifecycle counters.",
+    "privacy": "Do not record the notebook path, page text, recognition, or pixels.",
+    "mobileDeviceVerified": false
+  },
+  "input": {
+    "sourceBytes": 6883911
+  },
+  "render": {
+    "width": 192,
+    "height": 256,
+    "pngBytes": 2501
+  },
+  "active": {
+    "activeSessions": 1,
+    "activeLeases": 1,
+    "sessionOpens": 1,
+    "retainedSourceBytes": 6883911,
+    "transferredSourceBytes": 6883911,
+    "sourceCopies": 0
+  },
+  "afterClose": {
+    "activeSessions": 0,
+    "activeLeases": 0,
+    "sessionOpens": 1,
+    "retainedSourceBytes": 0,
+    "transferredSourceBytes": 6883911,
+    "sourceCopies": 0
+  }
+}

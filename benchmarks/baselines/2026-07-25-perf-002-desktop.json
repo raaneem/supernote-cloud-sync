@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-07-25T16:20:37.656Z",
+  "environment": {
+    "architecture": "arm64",
+    "cpu": "Apple M4 Pro",
+    "device": "apple-m4-pro-24gb",
+    "gitCommit": "6cd0591",
+    "gitDirty": true,
+    "node": "v22.22.2",
+    "obsidianMinimumVersion": "1.4.0",
+    "obsidianPluginVersion": "0.1.0",
+    "operatingSystem": "darwin",
+    "operatingSystemRelease": "25.5.0",
+    "packageVersion": "0.1.0",
+    "platform": "desktop",
+    "totalMemoryBytes": 25769803776
+  },
+  "profile": "standard",
+  "referenceWorkloads": {
+    "gridPages": 1000,
+    "notebookPages": 20,
+    "syncFiles": 500,
+    "syncTotalBytes": 1073741824
+  },
+  "scenarios": [
+    {
+      "name": "cold-activation",
+      "workload": {
+        "bundle": "main.js",
+        "isolatedProcesses": 5
+      },
+      "memory": {
+        "beforeBytes": 0,
+        "peakBytes": 2316948,
+        "afterGcBytes": 2316948,
+        "peakWorkingBytes": 2316948,
+        "retainedBytes": 2316948
+      },
+      "metrics": {
+        "activationP95Ms": 47.314,
+        "bundleBytes": 5909842,
+        "maxTaskMs": 46.969,
+        "moduleEvaluationP95Ms": 46.969,
+        "onloadP95Ms": 0.363
+      },
+      "budgets": [
+        {
+          "metric": "activationP95Ms",
+          "limit": 100,
+          "unit": "ms",
+          "description": "Cold plugin activation p95",
+          "actual": 47.314,
+          "passed": true
+        },
+        {
+          "metric": "maxTaskMs",
+          "limit": 50,
+          "unit": "ms",
+          "description": "Maximum plugin-attributable startup task",
+          "actual": 46.969,
+          "passed": true
+        },
+        {
+          "metric": "bundleBytes",
+          "limit": 4194304,
+          "unit": "bytes",
+          "description": "Uncompressed production main.js",
+          "actual": 5909842,
+          "passed": false
+        }
+      ],
+      "counters": {
+        "bundleBytes": 5909842,
+        "isolatedProcesses": 5,
+        "moduleEvaluationP95Ms": 46.969,
+        "onloadP95Ms": 0.363
+      },
+      "notes": [
+        "Measures CommonJS module evaluation and resolved plugin onload separately with inert Obsidian registration boundaries."
+      ],
+      "longTasks": [],
+      "passed": false,
+      "timings": {
+        "maxMs": 47.314,
+        "p50Ms": 46.713,
+        "p95Ms": 47.314,
+        "sampleCount": 5,
+        "totalMs": 229.709
+      }
+    }
+  ],
+  "passed": false
+}

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "ticket": "PERF-004",
+  "environment": {
+    "device": "Apple M4 Pro",
+    "memoryBytes": 25769803776,
+    "platform": "desktop",
+    "browser": "Google Chrome"
+  },
+  "before": {
+    "productionBundleBytes": 5412670,
+    "privateFixtureNativeRenderMs": 591.163,
+    "privateFixturePeakWorkingBytes": 78899282
+  },
+  "after": {
+    "productionBundleBytes": 4918172,
+    "generatedBlankRenderMs": 0.127,
+    "nodePrivateFixtureNativeRenderMs": 156.793,
+    "nodePrivateFixturePeakWorkingBytes": 68957154,
+    "browserPrivateFixtureDisplayBitmapMs": 15.7,
+    "browserPrivateFixtureNativeRenderMs": 29.6,
+    "browserPrivateFixtureScaledRenderMs": 12.6,
+    "browserScaledPngBytes": 2810,
+    "browserNativePngBytes": 114807,
+    "unminifiedBrowserWorkerBytes": 57567,
+    "displayRgbaSha256": "45b910c9e98f6b2cb71f40b08f1b5818aa9aeb677a6fff052cc9e4359b752729",
+    "flattenedPngRgbaSha256": "c37246557e96387b8999d7290157941b5a2f35cc167dd72d2469961a581a9b28",
+    "imageJsProductionDependency": false
+  },
+  "privacy": {
+    "sourcePathRecorded": false,
+    "sourceContentRecorded": false
+  },
+  "mobileDeviceVerified": false
+}
