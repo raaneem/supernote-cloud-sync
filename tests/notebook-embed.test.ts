@@ -417,4 +417,14 @@ describe("bounded notebook Reading view adapter", () => {
     expect(source).toContain('event.pointerType === "touch"');
     expect(source).toContain('rootMargin: "400px 0px"');
   });
+
+  it("clears swipe transforms without a static style assignment", () => {
+    const source = readFileSync(
+      new URL("../src/viewer/notebook-reading-view.ts", import.meta.url),
+      "utf8",
+    );
+
+    expect(source).not.toMatch(/\.style\.transform\s*=\s*""/);
+    expect(source).toContain('this.canvas.style.removeProperty("transform")');
+  });
 });

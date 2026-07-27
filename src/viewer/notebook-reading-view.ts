@@ -426,7 +426,7 @@ export class NotebookReadingView extends MarkdownRenderChild {
     }
     this.pointerId = null;
     this.swipe = null;
-    this.canvas.style.transform = "";
+    this.canvas.style.removeProperty("transform");
   }
 
   private measure(): NotebookEmbedDisplayBox {

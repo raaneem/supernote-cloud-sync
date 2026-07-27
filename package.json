@@ -1,6 +1,6 @@
 {
   "name": "supernote-cloud-sync",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Supernote Cloud mirror, optional Paired folder, and one-shot exports for Obsidian",
   "type": "module",
   "main": "main.js",

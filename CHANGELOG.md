@@ -4,6 +4,10 @@ All notable changes to Supernote Cloud Sync are documented here.
 
 The project uses Semantic Versioning.
 
+## 1.0.1 - 2026-07-28
+
+- Clear notebook swipe transforms without static inline style assignment.
+
 ## 1.0.0 - 2026-07-28
 
 - Publish the first stable release for the Obsidian community directory.
