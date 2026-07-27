@@ -1,6 +1,6 @@
 {
   "name": "supernote-cloud-sync",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Sync Supernote Cloud, read and embed notebooks, export or transcribe pages, automate changes, and optionally send files back",
   "type": "module",
   "main": "main.js",

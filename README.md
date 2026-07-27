@@ -12,6 +12,11 @@ folder.
 This is an unofficial community project and is not affiliated with or endorsed
 by Ratta.
 
+## Support the project
+
+If Supernote Cloud Sync is useful to you, you can support its continued
+development on [Ko-fi](https://ko-fi.com/raaneem).
+
 ## Highlights
 
 - **Direct Cloud mirror** — browse Supernote Cloud and mirror the files and

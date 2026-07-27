@@ -4,6 +4,10 @@ All notable changes to Supernote Cloud Sync are documented here.
 
 The project uses Semantic Versioning.
 
+## 1.0.3 - 2026-07-28
+
+- Add Ko-fi support links to the README and Obsidian plugin metadata.
+
 ## 1.0.2 - 2026-07-28
 
 - Expand the README and plugin description to cover the complete feature set.
