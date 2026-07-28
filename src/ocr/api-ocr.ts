@@ -32,7 +32,6 @@ interface ApiOcrOptions {
   extraInstructions: string;
   request: ChatCompletionExecutor;
   concurrency?: number;
-  documentRequestByteLimit?: number;
   runs?: RunRegistry;
 }
 
@@ -54,14 +53,10 @@ const asObject = (value: unknown): JsonObject | null =>
     ? (value as JsonObject)
     : null;
 
-export const DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT = 64 * 1024 * 1024;
-export const MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT = 32 * 1024 * 1024;
-
 export const BASE64_CHUNK_BYTES = 3 * 8192;
 export const BASE64_ENCODED_CHUNK_BYTES = (BASE64_CHUNK_BYTES / 3) * 4;
 const DATA_URL_PREFIX = "data:image/png;base64,";
 const BASE64_PLACEHOLDER = "__SUPERNOTE_BASE64_PAYLOAD__";
-const encoder = new TextEncoder();
 
 const appendBase64 = (
   bytes: Uint8Array,
@@ -93,15 +88,6 @@ const imagePart = (base64: string): JsonObject => ({
   },
 });
 
-const encodedLength = (bytes: number): number => 4 * Math.ceil(bytes / 3);
-
-const utf8Bytes = (value: string): number => encoder.encode(value).byteLength;
-
-const formatBytes = (bytes: number): string =>
-  bytes < 1024 * 1024
-    ? `${Math.ceil(bytes / 1024)} KiB`
-    : `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
-
 const responseError = (response: ChatCompletionResponse): string => {
   const json = asObject(response.json);
   const error = asObject(json?.error);
@@ -116,7 +102,6 @@ export class ApiOcrService implements OcrPort {
   private readonly instructions: string;
   private readonly request: ChatCompletionExecutor;
   private readonly concurrency: number;
-  private readonly documentRequestByteLimit: number;
   private readonly runs: RunRegistry | undefined;
 
   constructor(options: ApiOcrOptions) {
@@ -128,12 +113,6 @@ export class ApiOcrService implements OcrPort {
       .join("\n\nAdditional instructions:\n");
     this.request = options.request;
     this.runs = options.runs;
-    this.documentRequestByteLimit = Math.max(
-      1,
-      Math.trunc(
-        options.documentRequestByteLimit ?? DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT,
-      ),
-    );
     this.concurrency = Math.max(
       1,
       Math.min(3, Math.trunc(options.concurrency ?? 3)),
@@ -374,20 +353,9 @@ export class ApiOcrService implements OcrPort {
       payloadIndex + BASE64_PLACEHOLDER.length,
     );
     let body = bodyPrefix;
-    let estimatedBytes = utf8Bytes(bodyPrefix) + utf8Bytes(bodySuffix);
     let imageIndex = 0;
     for (const pageNumber of request.pages.pageNumbers) {
       const image = await request.pages.render(pageNumber);
-      estimatedBytes +=
-        (imageIndex === 0 ? 0 : 1) +
-        utf8Bytes(imagePrefix) +
-        encodedLength(image.byteLength) +
-        utf8Bytes(imageSuffix);
-      if (estimatedBytes > this.documentRequestByteLimit) {
-        throw new Error(
-          `Document transcription request would be ${formatBytes(estimatedBytes)}, above the ${formatBytes(this.documentRequestByteLimit)} limit. Use page mode or select fewer pages. The document was not silently split.`,
-        );
-      }
       if (imageIndex > 0) {
         body += ",";
       }

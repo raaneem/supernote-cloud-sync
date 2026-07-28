@@ -14,15 +14,43 @@ describe("Reader toolbar presentation", () => {
       compact: false,
       selecting: false,
       selectedPages: 0,
+      canZoomOut: false,
+      canZoomIn: true,
+      showZoomControls: true,
     });
 
     expect(presentation.visibleActions.map((action) => action.id)).toEqual([
       "pages",
+      "zoom-out",
+      "zoom-in",
       "copy-page",
       "copy-notebook",
       "export-current",
     ]);
+    expect(presentation.visibleActions.slice(1, 3)).toMatchObject([
+      { id: "zoom-out", disabled: true },
+      { id: "zoom-in", disabled: false },
+    ]);
     expect(presentation.menuActions).toEqual([]);
+  });
+
+  it("leaves zoom entirely to gestures on mobile", () => {
+    const presentation = readerToolbarPresentation({
+      mode: "pager",
+      compact: true,
+      selecting: false,
+      selectedPages: 0,
+      canZoomOut: true,
+      canZoomIn: true,
+      showZoomControls: false,
+    });
+
+    expect(presentation.menuActions.map((action) => action.id)).not.toContain(
+      "zoom-out",
+    );
+    expect(presentation.menuActions.map((action) => action.id)).not.toContain(
+      "zoom-in",
+    );
   });
 
   it("moves the complete pager action group into the compact menu", () => {
@@ -31,11 +59,16 @@ describe("Reader toolbar presentation", () => {
       compact: true,
       selecting: false,
       selectedPages: 0,
+      canZoomOut: false,
+      canZoomIn: true,
+      showZoomControls: true,
     });
 
     expect(presentation.visibleActions).toEqual([]);
     expect(presentation.menuActions.map((action) => action.id)).toEqual([
       "pages",
+      "zoom-out",
+      "zoom-in",
       "copy-page",
       "copy-notebook",
       "export-current",
@@ -48,6 +81,9 @@ describe("Reader toolbar presentation", () => {
       compact: false,
       selecting: true,
       selectedPages: 3,
+      canZoomOut: false,
+      canZoomIn: true,
+      showZoomControls: true,
     });
 
     expect(presentation.visibleActions).toEqual([
@@ -82,6 +118,9 @@ describe("Reader toolbar presentation", () => {
       compact: false,
       selecting: false,
       selectedPages: 0,
+      canZoomOut: false,
+      canZoomIn: true,
+      showZoomControls: true,
     });
 
     expect(presentation.visibleActions.at(-1)).toMatchObject({

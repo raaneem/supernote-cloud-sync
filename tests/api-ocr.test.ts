@@ -168,8 +168,11 @@ describe("ApiOcrService", () => {
     expect(result.documentText).toBe("# Heading\n\n- one\n- two");
   });
 
-  it("rejects an oversized document before constructing or sending its body", async () => {
-    const request = vi.fn();
+  it("does not use a Performance budget to reject a document request", async () => {
+    const request = vi.fn(async () => ({
+      status: 200,
+      json: { choices: [{ message: { content: "complete document" } }] },
+    }));
     const render = vi.fn(async () => new Uint8Array(100_000));
     const service = new ApiOcrService({
       baseUrl: "https://openrouter.ai/api/v1",
@@ -177,7 +180,6 @@ describe("ApiOcrService", () => {
       model: "vision/model",
       extraInstructions: "",
       request,
-      documentRequestByteLimit: 1_000,
     });
 
     const result = await service.transcribe({
@@ -189,11 +191,11 @@ describe("ApiOcrService", () => {
       },
     });
 
-    expect(render).toHaveBeenCalledTimes(1);
-    expect(request).not.toHaveBeenCalled();
-    expect(result.failedPages).toEqual([1, 2]);
-    expect(result.errors[0]).toContain("page mode");
-    expect(result.errors[0]).toContain("fewer pages");
+    expect(render).toHaveBeenCalledTimes(2);
+    expect(request).toHaveBeenCalledOnce();
+    expect(result.documentText).toBe("complete document");
+    expect(result.failedPages).toEqual([]);
+    expect(result.errors).toEqual([]);
   });
 
   it("encodes multi-chunk image bytes without changing the request payload", async () => {

@@ -138,4 +138,48 @@ describe("diagnostics report", () => {
       homeRelativePath("/Users/alice-other/tool", "/Users/alice", "darwin"),
     ).toBe("[absolute path outside home omitted]");
   });
+
+  it("includes bounded allowlisted performance evidence without operation paths", () => {
+    const report = renderDiagnosticsReport({
+      pluginVersion: "0.1.0",
+      obsidianVersion: "1.12.7",
+      platform: "ios",
+      architecture: "unknown",
+      mode: "mobile",
+      engine: "api",
+      sessionActive: true,
+      apiKeySet: false,
+      agentStatuses: {
+        claude: { state: "unavailable", reason: "not-found" },
+        codex: { state: "unavailable", reason: "not-found" },
+      },
+      prerequisites,
+      mirroredFileCount: 13,
+      lastSyncOutcome: "succeeded",
+      homeDirectory: null,
+      paths: {
+        vault: "not available",
+        transcriptionCommand: "",
+        temporaryBatches: [],
+      },
+      performance: [
+        {
+          kind: "notebook-open",
+          outcome: "failed",
+          durationMs: 42,
+          peakTrackedBytes: 106_527_410,
+          settledTrackedBytes: 0,
+          cleanup: "released",
+          failureCategory: "allocation",
+        },
+      ],
+    });
+
+    expect(report).toContain("performance:");
+    expect(report).toContain(
+      "notebook-open: failed, duration=42ms, peak=106527410, settled=0, cleanup=released, failure=allocation",
+    );
+    expect(report).not.toContain("Journal");
+    expect(report).not.toContain(".note");
+  });
 });

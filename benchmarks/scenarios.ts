@@ -13,17 +13,11 @@ import { decodeEmbeddedFont } from "../src/export/font-codec";
 import { PdfLibExporter } from "../src/export/pdf-export";
 import { encodeOpaqueNotebookPng } from "../src/note/notebook-png";
 import { rasterizeNotebookPage } from "../src/note/notebook-rasterizer";
-import {
-  DESKTOP_RENDER_BUDGET_BYTES,
-  MOBILE_RENDER_BUDGET_BYTES,
-  NotebookService,
-} from "../src/note/notebook-service";
+import { NotebookService } from "../src/note/notebook-service";
 import {
   ApiOcrService,
   BASE64_CHUNK_BYTES,
   BASE64_ENCODED_CHUNK_BYTES,
-  DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT,
-  MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT,
 } from "../src/ocr/api-ocr";
 import type {
   NotebookWorkerRequest,
@@ -77,6 +71,10 @@ import {
 import { NodeNotebookImageCodec } from "./node-notebook-image-codec";
 
 const MIB = 1_024 ** 2;
+const DESKTOP_RENDER_BUDGET_BYTES = 128 * MIB;
+const MOBILE_RENDER_BUDGET_BYTES = 96 * MIB;
+const DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT = 64 * MIB;
+const MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT = 32 * MIB;
 interface ScenarioOptions {
   platform: BenchmarkPlatform;
   profile: BenchmarkProfile;
@@ -164,10 +162,17 @@ const fillHandwritingLikePage = (
 interface RenderBudgetObservation {
   cachedFlipP95Ms: number;
   cancelledRenders: number;
+  cleanupMs: number;
+  concurrentMs: number;
+  concurrentNotebookRetainedBytes: number;
+  gridMs: number;
   maxObservedInFlightRenders: number;
   maxObservedQueueDepth: number;
+  openingRetainedBytes: number;
+  openingMs: number;
   peakRetainedBytes: number;
   releasedRetainedBytes: number;
+  settledViewingRetainedBytes: number;
 }
 
 class RenderBudgetWorker {
@@ -308,24 +313,24 @@ const renderBudgetContract = async (
 ): Promise<RenderBudgetObservation> => {
   const service = new NotebookService({
     createWorker: () => new RenderBudgetWorker() as unknown as Worker,
-    resourceBudgetBytes:
-      options.platform === "mobile"
-        ? MOBILE_RENDER_BUDGET_BYTES
-        : DESKTOP_RENDER_BUDGET_BYTES,
     maxConcurrentRenders: options.platform === "mobile" ? 1 : 2,
   });
+  const openingStartedAt = performance.now();
   const lease = await service.open({
     path: "generated-budget.note",
     revision: "benchmark",
     bytes: new Uint8Array(7 * MIB),
   });
-  let peakRetainedBytes = service.snapshot().retainedBytes;
+  const openingMs = performance.now() - openingStartedAt;
+  const openingRetainedBytes = service.snapshot().retainedBytes;
+  let peakRetainedBytes = openingRetainedBytes;
   const flipSamples: number[] = [];
   for (let page = 1; page <= 10; page += 1) {
     lease.updateView({
       visible: true,
       currentPage: page,
       gridOpen: false,
+      canvasBytes: 960 * 1_280 * 4,
     });
     const start = performance.now();
     const handles = await Promise.all(
@@ -350,6 +355,7 @@ const renderBudgetContract = async (
     currentPage: null,
     gridOpen: true,
   });
+  const gridStartedAt = performance.now();
   const thumbnailHandles = await Promise.all(
     Array.from({ length: 40 }, (_, index) =>
       lease.thumbnailBitmap(index + 1, 240),
@@ -358,6 +364,7 @@ const renderBudgetContract = async (
   for (const handle of thumbnailHandles) {
     handle.release();
   }
+  const gridMs = performance.now() - gridStartedAt;
   peakRetainedBytes = Math.max(
     peakRetainedBytes,
     service.snapshot().retainedBytes,
@@ -366,7 +373,9 @@ const renderBudgetContract = async (
     visible: true,
     currentPage: 10,
     gridOpen: false,
+    canvasBytes: 960 * 1_280 * 4,
   });
+  const settledViewingRetainedBytes = service.snapshot().retainedBytes;
 
   lease.updateView({
     visible: true,
@@ -380,6 +389,7 @@ const renderBudgetContract = async (
     visible: true,
     currentPage: 10,
     gridOpen: false,
+    canvasBytes: 960 * 1_280 * 4,
   });
   const staleResults = await Promise.allSettled(staleGrid);
   for (const result of staleResults) {
@@ -388,17 +398,127 @@ const renderBudgetContract = async (
     }
   }
   const active = service.snapshot();
+  const concurrentStartedAt = performance.now();
+  const otherLeases = await Promise.all(
+    [5, 9].map((sourceMib, index) =>
+      service.open({
+        path: `concurrent-${index + 1}.note`,
+        revision: "benchmark",
+        bytes: new Uint8Array(sourceMib * MIB),
+      }),
+    ),
+  );
+  const concurrentHandles = await Promise.all(
+    otherLeases.map((other, index) => {
+      other.updateView({
+        visible: true,
+        currentPage: index + 1,
+        gridOpen: false,
+        canvasBytes: 960 * 1_280 * 4,
+      });
+      return other.bitmap(index + 1);
+    }),
+  );
+  for (const handle of concurrentHandles) {
+    handle.release();
+  }
+  const concurrentNotebookRetainedBytes = service.snapshot().retainedBytes;
+  const concurrentMs = performance.now() - concurrentStartedAt;
+  peakRetainedBytes = Math.max(
+    peakRetainedBytes,
+    concurrentNotebookRetainedBytes,
+  );
+  for (const other of otherLeases) {
+    other.close();
+  }
+  const cleanupStartedAt = performance.now();
   lease.close();
   await Promise.resolve();
   const released = service.snapshot();
+  const cleanupMs = performance.now() - cleanupStartedAt;
   service.dispose();
   return {
     cachedFlipP95Ms: summarizeTimings(flipSamples.slice(1)).p95Ms,
     cancelledRenders: active.cancelledRenders,
+    cleanupMs,
+    concurrentMs,
+    concurrentNotebookRetainedBytes,
+    gridMs,
     maxObservedInFlightRenders: active.maxObservedInFlightRenders,
     maxObservedQueueDepth: active.maxObservedQueueDepth,
+    openingRetainedBytes,
+    openingMs,
     peakRetainedBytes,
     releasedRetainedBytes: released.retainedBytes,
+    settledViewingRetainedBytes,
+  };
+};
+
+type NotebookLifecycleScenarioName =
+  | "notebook-opening"
+  | "settled-viewing"
+  | "page-navigation"
+  | "page-grid"
+  | "concurrent-notebooks"
+  | "notebook-cleanup";
+
+const notebookLifecycleScenario = async (
+  options: ScenarioOptions,
+  name: NotebookLifecycleScenarioName,
+): Promise<ScenarioObservation> => {
+  const resources = await renderBudgetContract(options);
+  const responsivenessMs =
+    name === "notebook-opening"
+      ? resources.openingMs
+      : name === "page-grid"
+        ? resources.gridMs
+        : name === "concurrent-notebooks"
+          ? resources.concurrentMs
+          : name === "notebook-cleanup"
+            ? resources.cleanupMs
+            : resources.cachedFlipP95Ms;
+  const settledResourceBytes =
+    name === "notebook-opening"
+      ? resources.openingRetainedBytes
+      : name === "concurrent-notebooks"
+        ? resources.concurrentNotebookRetainedBytes
+        : name === "notebook-cleanup"
+          ? resources.releasedRetainedBytes
+          : resources.settledViewingRetainedBytes;
+  const peakResourceBytes =
+    name === "notebook-opening"
+      ? resources.openingRetainedBytes
+      : name === "concurrent-notebooks"
+        ? resources.concurrentNotebookRetainedBytes
+        : resources.peakRetainedBytes;
+  return {
+    name,
+    workload: {
+      fixture: "generated-notebook-service-contract",
+      notebookPages: REFERENCE_GRID_PAGES,
+      visibleNotebooks: name === "concurrent-notebooks" ? 3 : 1,
+    },
+    timings: summarizeTimings([responsivenessMs]),
+    memory: memorySummary(
+      0,
+      peakResourceBytes,
+      resources.releasedRetainedBytes,
+    ),
+    metrics: {
+      peakResourceBytes,
+      settledResourceBytes,
+      responsivenessP95Ms: responsivenessMs,
+      cleanupRetainedBytes: resources.releasedRetainedBytes,
+    },
+    budgets: [],
+    counters: {
+      cancelledRenders: resources.cancelledRenders,
+      maxObservedInFlightRenders: resources.maxObservedInFlightRenders,
+      maxObservedQueueDepth: resources.maxObservedQueueDepth,
+    },
+    notes: [
+      "Scenario-specific NotebookService evidence; compare only with a matching device and workload baseline.",
+    ],
   };
 };
 
@@ -570,6 +690,10 @@ const generatedPageRendering = async (
       peakWorkingBytes: memory.peakWorkingBytes,
       cachedFlipP95Ms: resources.cachedFlipP95Ms,
       trackedRenderBytes: resources.peakRetainedBytes,
+      openingRetainedBytes: resources.openingRetainedBytes,
+      settledViewingRetainedBytes: resources.settledViewingRetainedBytes,
+      concurrentNotebookRetainedBytes:
+        resources.concurrentNotebookRetainedBytes,
       releasedRenderBytes: resources.releasedRetainedBytes,
     },
     budgets: [
@@ -602,6 +726,24 @@ const generatedPageRendering = async (
         description: "Tracked render resource ceiling",
       },
       {
+        metric: "openingRetainedBytes",
+        limit: platformLimit(options.platform, 128 * MIB, 96 * MIB),
+        unit: "bytes",
+        description: "Opening-burst benchmark profile target",
+      },
+      {
+        metric: "settledViewingRetainedBytes",
+        limit: platformLimit(options.platform, 128 * MIB, 96 * MIB),
+        unit: "bytes",
+        description: "Settled-viewing benchmark profile target",
+      },
+      {
+        metric: "concurrentNotebookRetainedBytes",
+        limit: platformLimit(options.platform, 256 * MIB, 192 * MIB),
+        unit: "bytes",
+        description: "Three-visible-notebook benchmark profile target",
+      },
+      {
         metric: "releasedRenderBytes",
         limit: 0,
         unit: "bytes",
@@ -617,10 +759,14 @@ const generatedPageRendering = async (
     counters: {
       checksum,
       cancelledRenders: resources.cancelledRenders,
+      concurrentNotebookRetainedBytes:
+        resources.concurrentNotebookRetainedBytes,
       decodedBytes,
       encodedFixtureBytes: rle.byteLength,
       maxObservedInFlightRenders: resources.maxObservedInFlightRenders,
       maxObservedQueueDepth: resources.maxObservedQueueDepth,
+      openingRetainedBytes: resources.openingRetainedBytes,
+      settledViewingRetainedBytes: resources.settledViewingRetainedBytes,
       peakTrackedRenderBytes: resources.peakRetainedBytes,
       releasedTrackedRenderBytes: resources.releasedRetainedBytes,
     },
@@ -1586,11 +1732,6 @@ const exportTranscriptionPipeline = async (
     apiKey: "benchmark",
     model: "benchmark-vision",
     extraInstructions: "",
-    documentRequestByteLimit: platformLimit(
-      options.platform,
-      DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT,
-      MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT,
-    ),
     request: async (request) => {
       documentRequests += 1;
       finalRequestBytes = Buffer.byteLength(request.body);
@@ -1780,6 +1921,12 @@ const exportTranscriptionPipeline = async (
 
 export const scenarioNames = [
   "cold-activation",
+  "notebook-opening",
+  "settled-viewing",
+  "page-navigation",
+  "page-grid",
+  "concurrent-notebooks",
+  "notebook-cleanup",
   "page-rendering",
   "viewer-interaction",
   "run-log-streaming",
@@ -1798,6 +1945,13 @@ export const runScenario = async (
   switch (name) {
     case "cold-activation":
       return startup(options);
+    case "notebook-opening":
+    case "settled-viewing":
+    case "page-navigation":
+    case "page-grid":
+    case "concurrent-notebooks":
+    case "notebook-cleanup":
+      return notebookLifecycleScenario(options, name);
     case "page-rendering":
       return options.privateNote
         ? privateNoteRendering(options)

@@ -5,13 +5,13 @@ import { MarkdownPdfRenderer } from "../src/export/markdown-pdf";
 import { pdfBoldFontBytes, pdfRegularFontBytes } from "./pdf-font-fixture";
 
 describe("MarkdownPdfRenderer", () => {
-  it("subsets fonts while preserving selectable Unicode text", async () => {
+  it("embeds complete fonts for broad PDF viewer compatibility", async () => {
     const bytes = await new MarkdownPdfRenderer(
       pdfRegularFontBytes,
       pdfBoldFontBytes,
     ).render("# Résumé • Codex Markdown");
 
-    expect(bytes.byteLength).toBeLessThan(100_000);
+    expect(bytes.byteLength).toBeGreaterThan(500_000);
     const pdf = await getDocument({ data: bytes }).promise;
     const content = await (await pdf.getPage(1)).getTextContent();
     expect(

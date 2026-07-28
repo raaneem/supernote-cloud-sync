@@ -1,7 +1,15 @@
-import { ButtonComponent, Menu, Modal, setIcon, type App } from "obsidian";
+import {
+  ButtonComponent,
+  Menu,
+  Modal,
+  Platform,
+  setIcon,
+  type App,
+} from "obsidian";
 
 import type { SupernoteCloudClient } from "../cloud/client";
 import type { CloudFile, CloudItem } from "../cloud/types";
+import { cloudBrowserFilePresentation } from "./cloud-browser-presentation";
 import type { CloudBrowserSyncStatus } from "./cloud-browser-status";
 
 export type OpenCloudFile = (
@@ -65,6 +73,7 @@ interface FolderPickerModalOptions {
 }
 
 type RetryKind = "download" | "mirror" | "stop";
+type NavigationDirection = "forward" | "back" | "replace";
 
 interface OperationError {
   kind: RetryKind;
@@ -180,6 +189,7 @@ export class FolderPickerModal extends Modal {
   onOpen(): void {
     this.closed = false;
     this.modalEl.addClass("supernote-sync-browser-modal");
+    this.modalEl.toggleClass("is-mobile", Platform.isMobile);
     this.contentEl.empty();
     this.contentEl.addClass("supernote-sync-browser");
     this.setTitle("Supernote Cloud");
@@ -213,22 +223,24 @@ export class FolderPickerModal extends Modal {
     this.contentEl.empty();
   }
 
-  private async renderDirectory(): Promise<void> {
+  private async renderDirectory(
+    direction: NavigationDirection = "replace",
+  ): Promise<void> {
     const generation = ++this.renderGeneration;
     const location = this.currentLocation;
     this.renderBreadcrumbs();
     this.renderCurrentAction(location);
-    this.listEl.empty();
-    const loading = this.listEl.createEl("p", {
-      text: "Loading folder…",
-      cls: "supernote-sync-muted",
-    });
+    this.renderLoadingState(direction);
     try {
       const items = await this.cloud.listDirectory(location.id);
       if (generation !== this.renderGeneration) {
         return;
       }
-      loading.remove();
+      this.listEl.empty();
+      this.listEl.setAttr("aria-busy", "false");
+      const results = this.listEl.createDiv({
+        cls: `supernote-sync-browser-results ${this.transitionClass(direction)}`,
+      });
       const visibleItems = items
         .filter((item) => !this.options.foldersOnly || item.isFolder)
         .sort(
@@ -237,7 +249,7 @@ export class FolderPickerModal extends Modal {
             left.fileName.localeCompare(right.fileName),
         );
       if (visibleItems.length === 0) {
-        this.listEl.createEl("p", {
+        results.createEl("p", {
           text: this.options.foldersOnly
             ? "No folders are in this location."
             : "No folders or files are in this location.",
@@ -246,13 +258,14 @@ export class FolderPickerModal extends Modal {
         return;
       }
       for (const item of visibleItems) {
-        this.renderItem(item, location);
+        this.renderItem(results, item, location);
       }
     } catch (error) {
       if (generation !== this.renderGeneration) {
         return;
       }
-      loading.remove();
+      this.listEl.empty();
+      this.listEl.setAttr("aria-busy", "false");
       const failure = this.listEl.createDiv({
         cls: "supernote-sync-browser-load-error",
       });
@@ -272,13 +285,31 @@ export class FolderPickerModal extends Modal {
     if (this.locations.length === 1) {
       return;
     }
+    if (Platform.isMobile) {
+      const parent = this.locations.at(-2)!;
+      this.createIconButton(
+        this.breadcrumbsEl,
+        "chevron-left",
+        `Back to ${parent.label}`,
+        () => {
+          this.locations.pop();
+          void this.renderDirectory("back");
+        },
+      );
+      this.breadcrumbsEl.createSpan({
+        text: this.currentLocation.label,
+        cls: "supernote-sync-browser-mobile-location",
+        attr: { "aria-current": "location" },
+      });
+      return;
+    }
     const rootButton = this.createIconButton(
       this.breadcrumbsEl,
       "cloud",
       "Supernote Cloud",
       () => {
         this.locations.splice(1);
-        void this.renderDirectory();
+        void this.renderDirectory("back");
       },
     );
     rootButton.addClass("supernote-sync-browser-breadcrumb-root");
@@ -300,7 +331,7 @@ export class FolderPickerModal extends Modal {
           location.label,
           () => {
             this.locations.splice(index + 1);
-            void this.renderDirectory();
+            void this.renderDirectory("back");
           },
           "supernote-sync-browser-breadcrumb",
         );
@@ -343,19 +374,117 @@ export class FolderPickerModal extends Modal {
       this.renderErrorState(this.currentActionEl, location, operationError);
       return;
     }
+    if (Platform.isMobile) {
+      this.renderMobileCurrentFolderMenu(location, state);
+      return;
+    }
     this.renderFolderStateControls(this.currentActionEl, location, state, true);
   }
 
-  private renderItem(item: CloudItem, location: Location): void {
+  private renderMobileCurrentFolderMenu(
+    location: Location,
+    state: CloudBrowserItemState,
+  ): void {
+    const canMirror =
+      state.status !== "mirrored" &&
+      state.status !== "included" &&
+      state.status !== "writable-sync";
+    const canStopMirroring =
+      state.status === "mirrored" &&
+      this.options.previewStopMirroringFolder &&
+      this.options.stopMirroringFolder;
+    if (!canMirror && !canStopMirroring) {
+      return;
+    }
+    const button = this.currentActionEl.createEl("button", {
+      cls: "clickable-icon supernote-sync-browser-more",
+      attr: {
+        type: "button",
+        "aria-label": `Actions for ${location.label}`,
+        title: `Actions for ${location.label}`,
+      },
+    });
+    setIcon(button, "more-horizontal");
+    button.disabled = this.operationInProgress;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const menu = new Menu();
+      if (canMirror) {
+        menu.addItem((item) =>
+          item
+            .setTitle("Mirror this folder")
+            .setIcon("cloud-download")
+            .onClick(() => {
+              void this.runOperation(
+                location.path,
+                "mirror",
+                `Mirroring ${location.label}…`,
+                () => this.mirrorFolder(location.id, location.path),
+              );
+            }),
+        );
+      }
+      if (canStopMirroring) {
+        menu.addItem((item) =>
+          item
+            .setTitle("Stop mirroring…")
+            .setIcon("trash-2")
+            .onClick(() => {
+              void this.confirmAndStopMirroring(location);
+            }),
+        );
+      }
+      menu.showAtMouseEvent(event);
+    });
+  }
+
+  private renderLoadingState(direction: NavigationDirection): void {
+    this.listEl.empty();
+    this.listEl.setAttr("aria-busy", "true");
+    const skeletons = this.listEl.createDiv({
+      cls: `supernote-sync-browser-skeletons ${this.transitionClass(direction)}`,
+      attr: { "aria-label": "Loading folder" },
+    });
+    for (let index = 0; index < 5; index += 1) {
+      const row = skeletons.createDiv({
+        cls: "supernote-sync-browser-skeleton-row",
+      });
+      row.createSpan({ cls: "supernote-sync-browser-skeleton-icon" });
+      const text = row.createDiv({
+        cls: "supernote-sync-browser-skeleton-text",
+      });
+      text.createSpan({ cls: "supernote-sync-browser-skeleton-name" });
+      text.createSpan({ cls: "supernote-sync-browser-skeleton-subtitle" });
+    }
+  }
+
+  private transitionClass(direction: NavigationDirection): string {
+    return direction === "forward"
+      ? "is-entering-forward"
+      : direction === "back"
+        ? "is-entering-back"
+        : "is-entering";
+  }
+
+  private renderItem(
+    container: HTMLElement,
+    item: CloudItem,
+    location: Location,
+  ): void {
     const remotePath = `${location.path}/${item.fileName}`;
-    const row = this.listEl.createDiv({
+    const state = this.resolveState?.(item, remotePath) ?? {
+      status: "not-synced" as const,
+    };
+    const row = container.createDiv({
       cls: "supernote-sync-file-row",
     });
     const primary = row.createDiv({
       cls: "supernote-sync-file-primary",
-      attr: { role: "button" },
+      ...(!Platform.isMobile ? { attr: { role: "button" } } : {}),
     });
-    primary.tabIndex = 0;
+    if (!Platform.isMobile) {
+      primary.tabIndex = 0;
+    }
     const icon = primary.createSpan({ cls: "supernote-sync-file-icon" });
     setIcon(
       icon,
@@ -365,15 +494,19 @@ export class FolderPickerModal extends Modal {
           ? "notebook-tabs"
           : "file",
     );
-    primary.createSpan({
+    const description = primary.createDiv({
+      cls: "supernote-sync-file-description",
+    });
+    description.createSpan({
       text: item.fileName,
       cls: "supernote-sync-file-name",
     });
+    const subtitle = description.createSpan({
+      text: this.itemStatusLabel(item, state),
+      cls: "supernote-sync-file-subtitle",
+    });
     const controls = row.createDiv({ cls: "supernote-sync-file-controls" });
     const operationError = this.operationErrors.get(remotePath);
-    const state = this.resolveState?.(item, remotePath) ?? {
-      status: "not-synced" as const,
-    };
 
     if (item.isFolder) {
       const openFolder = (): void => {
@@ -382,10 +515,12 @@ export class FolderPickerModal extends Modal {
           path: remotePath,
           label: item.fileName,
         });
-        void this.renderDirectory();
+        void this.renderDirectory("forward");
       };
-      this.makeKeyboardClickable(primary, openFolder);
-      if (!this.options.foldersOnly) {
+      this.makeKeyboardClickable(Platform.isMobile ? row : primary, openFolder);
+      if (Platform.isMobile) {
+        this.addTrailingIcon(controls, "chevron-right");
+      } else if (!this.options.foldersOnly) {
         if (operationError) {
           this.renderErrorState(
             controls,
@@ -405,25 +540,112 @@ export class FolderPickerModal extends Modal {
     }
 
     const file = item as CloudFile;
+    const openStatus = operationError?.retryStatus ?? state.status;
     const open = (): void => {
-      void this.openCloudFile(file, remotePath, state.status);
+      if (this.operationInProgress) {
+        return;
+      }
+      this.showRowProgress(row, openStatus);
+      void this.openCloudFile(file, remotePath, openStatus);
     };
-    this.makeKeyboardClickable(primary, open);
     if (operationError) {
-      this.renderFileError(controls, file, remotePath, operationError);
+      if (Platform.isMobile) {
+        subtitle.setText(operationError.message);
+        subtitle.addClass("is-error");
+        row.setAttr(
+          "aria-label",
+          `${item.fileName}. ${operationError.message}. Retry.`,
+        );
+        this.makeKeyboardClickable(row, open);
+        this.addTrailingIcon(controls, "refresh-cw");
+        return;
+      }
+      this.makeKeyboardClickable(primary, open);
+      this.renderFileError(controls, operationError, open);
       return;
     }
-    this.addStatus(controls, this.statusLabel(state), false, state.status);
-    const label =
-      state.status === "downloaded" ||
-      state.status === "mirrored" ||
-      state.status === "writable-sync"
-        ? "Open"
-        : state.status === "update-available"
-          ? "Update and open"
-          : "Download";
-    this.createTextButton(controls, label, open).disabled =
-      this.operationInProgress;
+    this.makeKeyboardClickable(Platform.isMobile ? row : primary, open);
+    if (Platform.isMobile) {
+      const presentation = cloudBrowserFilePresentation(state.status);
+      row.setAttr(
+        "aria-label",
+        `${item.fileName}. ${presentation.statusLabel}. ${presentation.actionLabel}.`,
+      );
+      this.addTrailingIcon(controls, presentation.trailingIcon);
+      return;
+    }
+    this.createTextButton(
+      controls,
+      cloudBrowserFilePresentation(state.status).actionLabel.replace(
+        "Download and open",
+        "Download",
+      ),
+      open,
+      "supernote-sync-file-action",
+    ).disabled = this.operationInProgress;
+  }
+
+  private itemStatusLabel(
+    item: CloudItem,
+    state: CloudBrowserItemState,
+  ): string {
+    if (!item.isFolder) {
+      return cloudBrowserFilePresentation(state.status).statusLabel;
+    }
+    if (state.status === "not-synced") {
+      return "Cloud folder";
+    }
+    return this.statusLabel(state);
+  }
+
+  private addTrailingIcon(
+    container: HTMLElement,
+    icon: Parameters<typeof setIcon>[1],
+  ): void {
+    const trailing = container.createSpan({
+      cls: "supernote-sync-file-trailing-icon",
+      attr: { "aria-hidden": "true" },
+    });
+    setIcon(trailing, icon);
+  }
+
+  private showRowProgress(
+    row: HTMLElement,
+    status: CloudBrowserSyncStatus,
+  ): void {
+    row.addClass("is-working");
+    row.setAttr("aria-busy", "true");
+    const progressLabel =
+      status === "downloaded" ||
+      status === "mirrored" ||
+      status === "writable-sync"
+        ? "Opening…"
+        : "Downloading…";
+    row
+      .querySelector<HTMLElement>(".supernote-sync-file-subtitle")
+      ?.setText(progressLabel);
+    const trailing = row.querySelector<HTMLElement>(
+      ".supernote-sync-file-trailing-icon",
+    );
+    if (trailing) {
+      trailing.empty();
+      trailing.addClass("is-spinning");
+      setIcon(trailing, "loader-circle");
+    }
+    const action = row.querySelector<HTMLButtonElement>(
+      ".supernote-sync-file-action",
+    );
+    if (action) {
+      action.disabled = true;
+      action.empty();
+      const spinner = action.createSpan({
+        cls: "supernote-sync-file-action-spinner is-spinning",
+      });
+      setIcon(spinner, "loader-circle");
+      action.createSpan({
+        text: progressLabel,
+      });
+    }
   }
 
   private renderFolderStateControls(
@@ -433,21 +655,27 @@ export class FolderPickerModal extends Modal {
     currentFolder: boolean,
   ): void {
     if (state.status === "mirrored") {
-      this.addStatus(container, "Mirrored", false, state.status);
+      if (currentFolder) {
+        this.addStatus(container, "Mirrored", false, state.status);
+      }
       this.addStopMirroringMenu(container, location);
       return;
     }
     if (state.status === "included") {
-      this.addStatus(container, this.statusLabel(state), false, state.status);
+      if (currentFolder) {
+        this.addStatus(container, this.statusLabel(state), false, state.status);
+      }
       return;
     }
     if (state.status === "writable-sync") {
-      this.addStatus(
-        container,
-        STATUS_LABELS[state.status],
-        false,
-        state.status,
-      );
+      if (currentFolder) {
+        this.addStatus(
+          container,
+          STATUS_LABELS[state.status],
+          false,
+          state.status,
+        );
+      }
       return;
     }
     const mirror = (): void => {
@@ -576,18 +804,12 @@ export class FolderPickerModal extends Modal {
 
   private renderFileError(
     container: HTMLElement,
-    file: CloudFile,
-    remotePath: string,
     error: OperationError,
+    retry: () => void,
   ): void {
     this.addStatus(container, error.message, true);
-    this.createTextButton(container, "Retry", () => {
-      void this.openCloudFile(
-        file,
-        remotePath,
-        error.retryStatus ?? "not-synced",
-      );
-    }).disabled = this.operationInProgress;
+    this.createTextButton(container, "Retry", retry).disabled =
+      this.operationInProgress;
   }
 
   private renderErrorState(
@@ -737,6 +959,10 @@ export class FolderPickerModal extends Modal {
     element: HTMLElement,
     onActivate: () => void,
   ): void {
+    element.tabIndex = 0;
+    if (!element.hasAttribute("role")) {
+      element.setAttr("role", "button");
+    }
     element.addEventListener("click", onActivate);
     element.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {

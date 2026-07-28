@@ -3,6 +3,7 @@ import type {
   DesktopAgentBinary,
   DesktopBinaryStatus,
 } from "../shared/desktop-command";
+import type { PerformanceDiagnosticRecord } from "./performance-diagnostics";
 import type { SetupPrerequisite } from "./setup";
 
 export type LastSyncOutcome = "never" | "succeeded" | "failed";
@@ -26,6 +27,7 @@ export interface DiagnosticsReportInput {
   prerequisites: readonly SetupPrerequisite[];
   mirroredFileCount: number;
   lastSyncOutcome: LastSyncOutcome;
+  performance?: readonly PerformanceDiagnosticRecord[];
   homeDirectory: string | null;
   paths: DiagnosticsPaths;
 }
@@ -129,6 +131,14 @@ export const renderDiagnosticsReport = (
     "",
     `mirroredFiles: ${input.mirroredFileCount}`,
     `lastSync: ${input.lastSyncOutcome}`,
+    "",
+    "performance:",
+    ...(input.performance?.length
+      ? input.performance.map(
+          (record) =>
+            `  ${record.kind}: ${record.outcome}, duration=${record.durationMs}ms, peak=${record.peakTrackedBytes ?? "unknown"}, settled=${record.settledTrackedBytes ?? "unknown"}, cleanup=${record.cleanup}, failure=${record.failureCategory ?? "none"}`,
+        )
+      : ["  recent: none"]),
     "",
     "paths:",
     `  vault: ${homeRelativePath(

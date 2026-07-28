@@ -330,7 +330,6 @@ describe("SyncService mirror", () => {
     ]);
     expect(notebooks.open).toHaveBeenCalledWith(
       expect.objectContaining({ transfer: "copy" }),
-      { reclaim: "reloadable", budget: "transient" },
     );
     expect(
       JSON.parse(vault.text.get("supernote/.sync-manifest.json") ?? "{}"),

@@ -2,6 +2,8 @@ export type ReaderToolbarMode = "pager" | "grid";
 
 export type ReaderToolbarActionId =
   | "pages"
+  | "zoom-out"
+  | "zoom-in"
   | "copy-page"
   | "copy-notebook"
   | "export-current"
@@ -13,10 +15,13 @@ export interface ReaderToolbarContext {
   mode: ReaderToolbarMode;
   selecting: boolean;
   selectedPages: number;
+  canZoomOut: boolean;
+  canZoomIn: boolean;
 }
 
 export interface ReaderToolbarState extends ReaderToolbarContext {
   compact: boolean;
+  showZoomControls: boolean;
 }
 
 export interface ReaderToolbarAction {
@@ -36,6 +41,8 @@ export const READER_TOOLBAR_ACTION_CATALOG: Readonly<
   Record<ReaderToolbarActionId, { icon: string; label: string }>
 > = {
   pages: { icon: "layout-grid", label: "Pages" },
+  "zoom-out": { icon: "zoom-out", label: "Zoom out" },
+  "zoom-in": { icon: "zoom-in", label: "Zoom in" },
   "copy-page": { icon: "copy", label: "Copy current page embed" },
   "copy-notebook": { icon: "notebook", label: "Copy notebook embed" },
   "export-current": { icon: "download", label: "Export current page" },
@@ -103,8 +110,21 @@ const catalogAction = (id: ReaderToolbarActionId): ReaderToolbarAction => {
 export const readerToolbarPresentation = (
   state: ReaderToolbarState,
 ): ReaderToolbarPresentation => {
+  const zoomActions = state.showZoomControls
+    ? [
+        {
+          ...catalogAction("zoom-out"),
+          disabled: !state.canZoomOut,
+        },
+        {
+          ...catalogAction("zoom-in"),
+          disabled: !state.canZoomIn,
+        },
+      ]
+    : [];
   const pagerActions = [
     catalogAction("pages"),
+    ...zoomActions,
     catalogAction("copy-page"),
     catalogAction("copy-notebook"),
     catalogAction("export-current"),

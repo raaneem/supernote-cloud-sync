@@ -291,17 +291,14 @@ export class SyncService {
     const isNote = input.file.fileName.toLocaleLowerCase().endsWith(".note");
     let pageCount: number | undefined;
     if (isNote) {
-      const session = await this.notebooks.open(
-        {
-          // These bytes have not entered the Mirror yet, so they are a
-          // candidate source rather than a revision of the mirrored path.
-          path: `candidate:${descriptor.md5}:${vaultPath}`,
-          revision: descriptor.md5,
-          bytes,
-          transfer: "copy",
-        },
-        { reclaim: "reloadable", budget: "transient" },
-      );
+      const session = await this.notebooks.open({
+        // These bytes have not entered the Mirror yet, so they are a
+        // candidate source rather than a revision of the mirrored path.
+        path: `candidate:${descriptor.md5}:${vaultPath}`,
+        revision: descriptor.md5,
+        bytes,
+        transfer: "copy",
+      });
       pageCount = session.descriptor.pageCount;
       session.close();
     }

@@ -47,6 +47,64 @@ export interface ScenarioResult
   passed: boolean;
 }
 
+export interface ScenarioBaseline {
+  readonly name: string;
+  readonly metrics: Readonly<Record<string, number>>;
+}
+
+export interface RegressionResult {
+  readonly metric: string;
+  readonly baseline: number;
+  readonly actual: number;
+  readonly toleranceFraction: number;
+  readonly limit: number;
+  readonly passed: boolean;
+}
+
+export const regressionGatePassed = (
+  baselineProvided: boolean,
+  comparisons: readonly RegressionResult[],
+  forceFailure = false,
+): boolean =>
+  !forceFailure &&
+  (!baselineProvided || comparisons.every((comparison) => comparison.passed));
+
+export const compareScenarioToBaseline = (
+  scenario: Pick<ScenarioResult, "name" | "metrics">,
+  baseline: ScenarioBaseline,
+  toleranceFraction: number,
+): RegressionResult[] => {
+  if (scenario.name !== baseline.name) {
+    throw new Error(
+      `Cannot compare scenario ${scenario.name} with baseline ${baseline.name}`,
+    );
+  }
+  if (!Number.isFinite(toleranceFraction) || toleranceFraction < 0) {
+    throw new Error("Regression tolerance must be a nonnegative number");
+  }
+  return Object.entries(baseline.metrics).flatMap(
+    ([metric, baselineValue]): RegressionResult[] => {
+      const actual = scenario.metrics[metric];
+      if (actual === undefined) {
+        throw new Error(
+          `Scenario ${scenario.name} did not report baseline metric ${metric}`,
+        );
+      }
+      const limit = baselineValue * (1 + toleranceFraction);
+      return [
+        {
+          metric,
+          baseline: baselineValue,
+          actual,
+          toleranceFraction,
+          limit,
+          passed: actual <= limit,
+        },
+      ];
+    },
+  );
+};
+
 export const percentile = (
   samples: readonly number[],
   percentileValue: number,

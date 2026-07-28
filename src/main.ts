@@ -30,20 +30,11 @@ import {
 import type { PdfExporter } from "./export/pdf-export";
 import PdfWorker from "./export/pdf.worker.ts?worker&inline";
 import {
-  DESKTOP_RENDER_BUDGET_BYTES,
-  DESKTOP_TRANSIENT_SYNC_BUDGET_BYTES,
-  MOBILE_RENDER_BUDGET_BYTES,
-  MOBILE_TRANSIENT_SYNC_BUDGET_BYTES,
   NotebookService,
   type NotebookSessionLease,
 } from "./note/notebook-service";
 import NotebookWorker from "./note/notebook.worker.ts?worker&inline";
-import {
-  ApiOcrService,
-  DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT,
-  MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT,
-  type ChatCompletionExecutor,
-} from "./ocr/api-ocr";
+import { ApiOcrService, type ChatCompletionExecutor } from "./ocr/api-ocr";
 import { AgentOcrService } from "./ocr/agent-ocr";
 import { CommandOcrService } from "./ocr/command-ocr";
 import { ApiModelCatalog, type ApiModelOption } from "./ocr/api-models";
@@ -58,6 +49,13 @@ import {
   renderDiagnosticsReport,
   type LastSyncOutcome,
 } from "./onboarding/diagnostics";
+import {
+  PerformanceDiagnostics,
+  performanceFailureCategory,
+  type ActivePerformanceOperation,
+  type FinishPerformanceOperation,
+  type PerformanceOperationKind,
+} from "./onboarding/performance-diagnostics";
 import {
   setupPrerequisites as buildSetupPrerequisites,
   shouldShowSetupNotice,
@@ -340,6 +338,8 @@ export default class SupernoteSyncPlugin extends Plugin {
   private watchHooksRerunRequested = false;
   private registeredWatchCommands: string[] = [];
   private lastAutoSyncAttempt = 0;
+  private workspaceLayoutReady = false;
+  private performanceDiagnostics!: PerformanceDiagnostics;
 
   get settings(): Readonly<SupernoteSyncSettings> {
     return this.data.settings;
@@ -415,6 +415,9 @@ export default class SupernoteSyncPlugin extends Plugin {
   }
 
   async onload(): Promise<void> {
+    this.app.workspace.onLayoutReady(() => {
+      this.workspaceLayoutReady = true;
+    });
     const stored = (await this.loadData()) as
       | (Partial<PluginData> & {
           writableSubtreeConfigured?: boolean;
@@ -497,6 +500,10 @@ export default class SupernoteSyncPlugin extends Plugin {
         ? stored.missingCloudNotes
         : [],
     };
+    this.performanceDiagnostics = new PerformanceDiagnostics(
+      this.instanceState.performanceDiagnostics,
+    );
+    this.persistPerformanceDiagnostics();
     if (
       stored?.token !== undefined ||
       storedSettings?.autoSyncMinutes !== undefined
@@ -546,6 +553,19 @@ export default class SupernoteSyncPlugin extends Plugin {
       (leaf) =>
         new SupernoteNoteView(leaf, {
           notebooks: this.getNotebookService(),
+          beginNotebookOpen: (scope) =>
+            this.beginPerformanceOperation("notebook-open", scope),
+          finishNotebookOpen: (operation, result) =>
+            this.finishPerformanceOperation(operation, result),
+          consumeInterruptedNotebookOpen: (scope) =>
+            this.performanceDiagnostics.consumeInterrupted(
+              "notebook-open",
+              scope,
+            ),
+          isAutomaticWorkspaceRestore: () => !this.workspaceLayoutReady,
+          trackedNotebookBytes: () =>
+            this.notebookService?.snapshot().retainedBytes ?? 0,
+          copyDiagnostics: () => this.copyDiagnostics(),
           getTranscriptionAvailability: () =>
             this.getTranscriptionAvailability(),
           getTargetFolder: () => this.data.settings.targetFolder,
@@ -682,6 +702,8 @@ export default class SupernoteSyncPlugin extends Plugin {
   }
 
   onunload(): void {
+    this.performanceDiagnostics.cancelActive();
+    this.persistPerformanceDiagnostics();
     this.runConsole?.dispose();
     this.runConsole = null;
     this.notebookService?.dispose();
@@ -806,6 +828,33 @@ export default class SupernoteSyncPlugin extends Plugin {
     const { token: _token, settings: runtimeSettings, ...persisted } = data;
     const { autoSyncMinutes: _autoSyncMinutes, ...settings } = runtimeSettings;
     await this.saveData({ ...persisted, settings });
+  }
+
+  private async beginPerformanceOperation(
+    kind: PerformanceOperationKind,
+    scope: string | null = null,
+  ): Promise<ActivePerformanceOperation> {
+    const operation = this.performanceDiagnostics.begin(kind, scope);
+    this.persistPerformanceDiagnostics();
+    return operation;
+  }
+
+  private async finishPerformanceOperation(
+    operation: ActivePerformanceOperation,
+    result: FinishPerformanceOperation,
+  ): Promise<void> {
+    this.performanceDiagnostics.finish(operation, result);
+    this.persistPerformanceDiagnostics();
+  }
+
+  private persistPerformanceDiagnostics(): void {
+    this.instanceState.performanceDiagnostics =
+      this.performanceDiagnostics.snapshot();
+    try {
+      this.instanceStateStore.save(this.instanceState);
+    } catch {
+      // Diagnostic persistence must never deny the operation being observed.
+    }
   }
 
   getMirroredNotePaths(): string[] {
@@ -1316,6 +1365,7 @@ export default class SupernoteSyncPlugin extends Plugin {
       prerequisites: this.setupPrerequisites(),
       mirroredFileCount,
       lastSyncOutcome: this.data.lastSyncOutcome,
+      performance: this.performanceDiagnostics.snapshot().recent,
       homeDirectory: desktop.homeDirectory,
       paths: {
         vault: vaultPath,
@@ -1735,6 +1785,18 @@ export default class SupernoteSyncPlugin extends Plugin {
       return false;
     }
 
+    this.syncInProgress = true;
+    const diagnosticOperation = await this.beginPerformanceOperation("sync");
+    let diagnosticPeakBytes =
+      this.notebookService?.snapshot().retainedBytes ?? 0;
+    const diagnosticSampler = window.setInterval(() => {
+      diagnosticPeakBytes = Math.max(
+        diagnosticPeakBytes,
+        this.notebookService?.snapshot().retainedBytes ?? 0,
+      );
+    }, 50);
+    let diagnosticOutcome: "succeeded" | "failed" = "failed";
+    let diagnosticFailureCategory: string | null = null;
     let completed = false;
     const activity = this.runs.start({
       kind: "sync",
@@ -1743,7 +1805,6 @@ export default class SupernoteSyncPlugin extends Plugin {
       model: "mirror",
     });
     activity.append("stdout", "Checking Supernote Cloud for changes.\n");
-    this.syncInProgress = true;
     try {
       const manifestService = this.createSyncService();
       const transaction = await SyncManifestTransaction.open(
@@ -2076,8 +2137,10 @@ export default class SupernoteSyncPlugin extends Plugin {
       activity.append("stdout", `${summary}.\n`);
       activity.finish(outcome);
       completed = true;
+      diagnosticOutcome = "succeeded";
       return true;
     } catch (error) {
+      diagnosticFailureCategory = performanceFailureCategory(error);
       activity.append("stderr", `${errorMessage(error)}\n`);
       activity.finish("failed");
       this.data.lastSyncOutcome = "failed";
@@ -2086,6 +2149,15 @@ export default class SupernoteSyncPlugin extends Plugin {
       return false;
     } finally {
       this.syncInProgress = false;
+      window.clearInterval(diagnosticSampler);
+      const diagnosticSettledBytes =
+        this.notebookService?.snapshot().retainedBytes ?? 0;
+      await this.finishPerformanceOperation(diagnosticOperation, {
+        outcome: diagnosticOutcome,
+        peakTrackedBytes: Math.max(diagnosticPeakBytes, diagnosticSettledBytes),
+        settledTrackedBytes: diagnosticSettledBytes,
+        failureCategory: diagnosticFailureCategory,
+      });
       if (
         completed &&
         runAutomations &&
@@ -2204,6 +2276,17 @@ export default class SupernoteSyncPlugin extends Plugin {
       throw new Error("A Mirror move is already running");
     }
     this.syncInProgress = true;
+    const diagnosticOperation = await this.beginPerformanceOperation("export");
+    let diagnosticPeakBytes =
+      this.notebookService?.snapshot().retainedBytes ?? 0;
+    const diagnosticSampler = window.setInterval(() => {
+      diagnosticPeakBytes = Math.max(
+        diagnosticPeakBytes,
+        this.notebookService?.snapshot().retainedBytes ?? 0,
+      );
+    }, 50);
+    let diagnosticOutcome: "succeeded" | "failed" | "cancelled" = "failed";
+    let diagnosticFailureCategory: string | null = null;
     try {
       const selection = this.transcriptionSelection(options.transcription);
       if (
@@ -2231,19 +2314,36 @@ export default class SupernoteSyncPlugin extends Plugin {
           overwrite,
         });
       try {
-        return await run(false);
+        const result = await run(false);
+        diagnosticOutcome = "succeeded";
+        return result;
       } catch (error) {
         if (!(error instanceof ExportCollisionError)) {
           throw error;
         }
         const overwrite = await confirmExportOverwrite(this.app, error.paths);
         if (!overwrite) {
+          diagnosticOutcome = "cancelled";
           return null;
         }
-        return await run(true);
+        const result = await run(true);
+        diagnosticOutcome = "succeeded";
+        return result;
       }
+    } catch (error) {
+      diagnosticFailureCategory = performanceFailureCategory(error);
+      throw error;
     } finally {
       this.syncInProgress = false;
+      window.clearInterval(diagnosticSampler);
+      const diagnosticSettledBytes =
+        this.notebookService?.snapshot().retainedBytes ?? 0;
+      await this.finishPerformanceOperation(diagnosticOperation, {
+        outcome: diagnosticOutcome,
+        peakTrackedBytes: Math.max(diagnosticPeakBytes, diagnosticSettledBytes),
+        settledTrackedBytes: diagnosticSettledBytes,
+        failureCategory: diagnosticFailureCategory,
+      });
     }
   }
 
@@ -2625,9 +2725,6 @@ export default class SupernoteSyncPlugin extends Plugin {
       extraInstructions: settings.transcriptionExtraInstructions,
       request,
       runs: this.runs,
-      documentRequestByteLimit: Platform.isDesktopApp
-        ? DESKTOP_DOCUMENT_REQUEST_BYTE_LIMIT
-        : MOBILE_DOCUMENT_REQUEST_BYTE_LIMIT,
     });
   }
 
@@ -2812,12 +2909,6 @@ export default class SupernoteSyncPlugin extends Plugin {
     this.notebookService ??= new NotebookService({
       createWorker: () => new NotebookWorker(),
       notifyRenderingUnavailable: (message) => new Notice(message, 12_000),
-      resourceBudgetBytes: Platform.isMobile
-        ? MOBILE_RENDER_BUDGET_BYTES
-        : DESKTOP_RENDER_BUDGET_BYTES,
-      transientResourceBudgetBytes: Platform.isMobile
-        ? MOBILE_TRANSIENT_SYNC_BUDGET_BYTES
-        : DESKTOP_TRANSIENT_SYNC_BUDGET_BYTES,
       maxConcurrentRenders: Platform.isMobile ? 1 : 2,
     });
     return this.notebookService;

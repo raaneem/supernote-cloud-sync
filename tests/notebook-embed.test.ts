@@ -64,7 +64,7 @@ const createLease = (
         Promise.resolve(createHandle(pageNumber)),
     ),
   renderPng: vi.fn(),
-  updateView: vi.fn().mockReturnValue({ admitted: true }),
+  updateView: vi.fn().mockReturnValue({ updated: true }),
   close: vi.fn(),
 });
 
@@ -334,7 +334,7 @@ describe("bounded notebook embed render lifecycle", () => {
     expect(target.draw).toHaveBeenCalledTimes(2);
   });
 
-  it("never retains more than one admitted canvas allocation", async () => {
+  it("never retains more than one prepared canvas allocation", async () => {
     const lease = createLease();
     const { renderer, target } = createRenderer({
       open: vi.fn().mockResolvedValue(lease),
@@ -355,7 +355,7 @@ describe("bounded notebook embed render lifecycle", () => {
     });
   });
 
-  it("opens only admitted members of a 100-embed fixture", async () => {
+  it("opens only activated members of a 100-embed fixture", async () => {
     const notebooks: NotebookSessionProvider = {
       open: vi.fn().mockImplementation(() => Promise.resolve(createLease())),
     };

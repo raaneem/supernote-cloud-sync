@@ -1,4 +1,8 @@
 import type { PairBaseline } from "./pair-sync-service";
+import {
+  normalizePerformanceDiagnostics,
+  type PerformanceDiagnosticsSnapshot,
+} from "../onboarding/performance-diagnostics";
 
 interface DeviceLocalStorage {
   loadLocalStorage(key: string): unknown | null;
@@ -24,6 +28,7 @@ export interface InstanceState {
   pairBaselines: Record<string, PairBaseline>;
   mirrorDirectories: Record<string, MirrorDirectoryState>;
   lastSendDestination: SendDestination | null;
+  performanceDiagnostics: PerformanceDiagnosticsSnapshot;
 }
 
 export interface LegacyInstanceState {
@@ -42,6 +47,7 @@ export const emptyInstanceState = (): InstanceState => ({
   pairBaselines: {},
   mirrorDirectories: {},
   lastSendDestination: null,
+  performanceDiagnostics: { active: [], recent: [] },
 });
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -134,6 +140,9 @@ const parseInstanceState = (value: unknown): InstanceState | null => {
   const state = JSON.parse(JSON.stringify(value)) as InstanceState;
   state.lastFullSyncAt ??= null;
   state.mirrorDirectories ??= {};
+  state.performanceDiagnostics = normalizePerformanceDiagnostics(
+    value.performanceDiagnostics,
+  );
   for (const baseline of Object.values(state.pairBaselines)) {
     baseline.directories ??= {};
   }

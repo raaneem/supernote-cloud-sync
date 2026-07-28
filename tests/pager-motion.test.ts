@@ -1,35 +1,35 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  admittedPageTransition,
   navigationTarget,
   pageTransitionCommitDecision,
   pageTransitionRenderTarget,
   PagerSwipeGesture,
   pageTransition,
+  preparedPageTransition,
   reducedMotionRequested,
 } from "../src/viewer/pager-motion";
 
-describe("page transition admission", () => {
-  it("admits a non-adjacent target before rendering it", () => {
-    const admitted: number[] = [];
+describe("page transition preparation", () => {
+  it("prepares a non-adjacent target before rendering it", () => {
+    const prepared: number[] = [];
 
     expect(
-      admittedPageTransition(2, 12, false, (pageNumber) => {
-        admitted.push(pageNumber);
+      preparedPageTransition(2, 12, false, (pageNumber) => {
+        prepared.push(pageNumber);
         return true;
       }),
     ).toEqual({
       direction: "next",
       trackPercent: -200,
     });
-    expect(admitted).toEqual([12]);
+    expect(prepared).toEqual([12]);
     expect(pageTransitionRenderTarget(2, 12)).toBe(12);
     expect(pageTransitionRenderTarget(2, null)).toBe(2);
   });
 
-  it("does not begin a transition when target admission is rejected", () => {
-    expect(admittedPageTransition(2, 12, false, () => false)).toBeNull();
+  it("does not begin a transition when target preparation fails", () => {
+    expect(preparedPageTransition(2, 12, false, () => false)).toBeNull();
   });
 
   it.each([

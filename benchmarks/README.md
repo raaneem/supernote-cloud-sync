@@ -1,7 +1,9 @@
 # Performance and quality harness
 
 The harness gives each performance ticket a stable workload, JSON schema, and
-budget result before optimization begins. Run commands from `plugin/`.
+Performance budget result before optimization begins. These budgets are
+benchmark and CI regression evidence; they never authorize production code to
+reject a user operation. Run commands from `plugin/`.
 
 ## Quality gate
 
@@ -24,9 +26,11 @@ pnpm run build:bundle
 pnpm perf -- --record --output benchmarks/results/local.json
 ```
 
-Without `--record`, a failed budget makes the command exit nonzero. A recorded
-run still writes every pass/fail result but exits successfully so an existing
-baseline can be captured. Check the failure path independently:
+Legacy absolute targets remain visible as informational migration evidence, but
+they do not fail the command or control production behavior. A command fails
+only for the harness self-test or a matching-baseline regression beyond the
+explicit tolerance. A recorded run writes the evidence and exits successfully so
+a baseline can be reviewed. Check the harness failure path independently:
 
 ```sh
 pnpm perf -- --profile smoke --scenario run-log-streaming --force-budget-failure
@@ -37,6 +41,7 @@ Run one or more scenarios with `--scenario`:
 ```sh
 pnpm perf -- --record --scenario cold-activation
 pnpm perf -- --record --scenario page-rendering,viewer-interaction
+pnpm perf -- --record --scenario notebook-opening,settled-viewing,page-navigation,page-grid,concurrent-notebooks,notebook-cleanup
 pnpm perf -- --record --scenario run-log-streaming
 pnpm perf -- --record --scenario writable-sync-memory
 pnpm perf -- --record --scenario export-preparation
@@ -58,10 +63,32 @@ Label mobile evidence explicitly:
 pnpm perf -- --record --platform mobile --device iphone-15-pro
 ```
 
+The Node runner labels `--platform mobile` as a `desktop-mobile-simulation`. It
+is useful for checking the mobile concurrency and workload contract, but it is
+not physical-device evidence. Record actual iOS or Android Obsidian measurements
+separately rather than relabelling a desktop run.
+
 The runner identifies the selected desktop/mobile contract, device label, OS,
 architecture, CPU, memory, Node version, plugin/Obsidian versions, Git commit,
 and dirty state. Each scenario reports workload details, timing summaries, long
-tasks over 50 ms, memory deltas, counters, and individual budget decisions.
+tasks over 50 ms, memory deltas, counters, informational legacy target
+comparisons, and a normalized evidence summary with peak, settled,
+responsiveness, and cleanup values. Page rendering reports opening burst,
+settled viewing, and three-visible-notebook workloads separately.
+
+Compare a run only with a reviewed result from the same device, platform
+contract, and workload profile:
+
+```sh
+pnpm perf -- --device local-reference --profile standard \
+  --baseline benchmarks/baselines/reviewed-local-standard.json \
+  --tolerance 0.20
+```
+
+The runner rejects mismatched baseline identities. A matching metric that
+regresses beyond the explicit tolerance fails the benchmark command unless
+`--record` is present. `--record` is for collecting evidence, not waiving a CI
+regression.
 
 ## Fixtures and privacy
 

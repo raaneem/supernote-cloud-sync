@@ -7,13 +7,15 @@ import {
   release,
   totalmem,
 } from "node:os";
-import { dirname, resolve } from "node:path";
+import { basename, dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import {
   type BenchmarkPlatform,
   type BenchmarkProfile,
+  compareScenarioToBaseline,
   evaluateScenario,
+  regressionGatePassed,
   roundResult,
   type ScenarioResult,
 } from "./harness";
@@ -26,6 +28,7 @@ import {
 } from "./workloads";
 
 interface CliOptions {
+  baseline?: string;
   device: string;
   forceBudgetFailure: boolean;
   note?: string;
@@ -34,6 +37,20 @@ interface CliOptions {
   profile: BenchmarkProfile;
   record: boolean;
   scenarios: ScenarioName[];
+  tolerance: number;
+}
+
+interface BaselineReport {
+  environment: {
+    device: string;
+    platform: BenchmarkPlatform;
+  };
+  profile: BenchmarkProfile;
+  scenarios: Array<{
+    name: string;
+    workload: Record<string, boolean | number | string>;
+    metrics: Record<string, number>;
+  }>;
 }
 
 const pluginRoot = resolve(import.meta.dirname, "..");
@@ -73,6 +90,7 @@ export const parseArguments = (arguments_: readonly string[]): CliOptions => {
     profile: "standard",
     record: false,
     scenarios: [...scenarioNames],
+    tolerance: 0.2,
   };
   for (let index = 0; index < arguments_.length; index += 1) {
     const argument = arguments_[index]!;
@@ -81,6 +99,10 @@ export const parseArguments = (arguments_: readonly string[]): CliOptions => {
         break;
       case "--device":
         options.device = readValue(arguments_, index, argument);
+        index += 1;
+        break;
+      case "--baseline":
+        options.baseline = resolve(readValue(arguments_, index, argument));
         index += 1;
         break;
       case "--force-budget-failure":
@@ -125,6 +147,15 @@ export const parseArguments = (arguments_: readonly string[]): CliOptions => {
         );
         index += 1;
         break;
+      case "--tolerance": {
+        const value = Number(readValue(arguments_, index, argument));
+        if (!Number.isFinite(value) || value < 0) {
+          throw new Error("--tolerance must be a nonnegative number");
+        }
+        options.tolerance = value;
+        index += 1;
+        break;
+      }
       default:
         throw new Error(`Unknown benchmark argument: ${argument}`);
     }
@@ -132,7 +163,42 @@ export const parseArguments = (arguments_: readonly string[]): CliOptions => {
   if (options.note && !existsSync(options.note)) {
     throw new Error("Private benchmark note does not exist");
   }
+  if (options.baseline && !existsSync(options.baseline)) {
+    throw new Error("Benchmark baseline does not exist");
+  }
   return options;
+};
+
+export const validateBaselineIdentity = (
+  options: Pick<CliOptions, "device" | "platform" | "profile">,
+  baseline: BaselineReport,
+): void => {
+  if (
+    baseline.environment.device !== options.device ||
+    baseline.environment.platform !== options.platform ||
+    baseline.profile !== options.profile
+  ) {
+    throw new Error(
+      "Benchmark baseline must match device, platform contract, and workload profile",
+    );
+  }
+};
+
+export const validateBaselineWorkload = (
+  current: {
+    name: string;
+    workload: Record<string, boolean | number | string>;
+  },
+  baseline: BaselineReport["scenarios"][number],
+): void => {
+  if (
+    current.name !== baseline.name ||
+    JSON.stringify(current.workload) !== JSON.stringify(baseline.workload)
+  ) {
+    throw new Error(
+      `Benchmark baseline workload does not match scenario ${current.name}`,
+    );
+  }
 };
 
 const git = (...arguments_: string[]): string => {
@@ -152,6 +218,12 @@ const obsidianManifest = JSON.parse(
 
 const main = async (): Promise<void> => {
   const options = parseArguments(process.argv.slice(2));
+  const baseline = options.baseline
+    ? (JSON.parse(readFileSync(options.baseline, "utf8")) as BaselineReport)
+    : null;
+  if (baseline) {
+    validateBaselineIdentity(options, baseline);
+  }
   if (
     options.scenarios.includes("cold-activation") &&
     !existsSync(resolve(pluginRoot, "main.js"))
@@ -174,8 +246,35 @@ const main = async (): Promise<void> => {
       ),
     );
   }
+  const scenarioComparisons = new Map(
+    scenarios.map((scenario) => {
+      const matchingBaseline = baseline?.scenarios.find(
+        (candidate) => candidate.name === scenario.name,
+      );
+      if (baseline && !matchingBaseline) {
+        throw new Error(
+          `Matching baseline does not include scenario ${scenario.name}`,
+        );
+      }
+      if (matchingBaseline) {
+        validateBaselineWorkload(scenario, matchingBaseline);
+      }
+      const regressions = matchingBaseline
+        ? compareScenarioToBaseline(
+            scenario,
+            matchingBaseline,
+            options.tolerance,
+          )
+        : [];
+      return [scenario.name, regressions] as const;
+    }),
+  );
+  const evidenceKind =
+    options.platform === "mobile"
+      ? "desktop-mobile-simulation"
+      : "native-desktop";
   const report = roundResult({
-    schemaVersion: 1,
+    schemaVersion: 2,
     generatedAt: new Date().toISOString(),
     environment: {
       architecture: arch(),
@@ -191,6 +290,7 @@ const main = async (): Promise<void> => {
       packageVersion: packageManifest.version,
       platform: options.platform,
       totalMemoryBytes: totalmem(),
+      evidenceKind,
     },
     profile: options.profile,
     referenceWorkloads: {
@@ -199,17 +299,59 @@ const main = async (): Promise<void> => {
       syncFiles: REFERENCE_SYNC_FILES,
       syncTotalBytes: REFERENCE_SYNC_BYTES,
     },
-    scenarios: scenarios.map(({ timings, ...scenario }) => ({
-      ...scenario,
-      timings: {
-        maxMs: timings.maxMs,
-        p50Ms: timings.p50Ms,
-        p95Ms: timings.p95Ms,
-        sampleCount: timings.samplesMs.length,
-        totalMs: timings.samplesMs.reduce((total, sample) => total + sample, 0),
+    scenarios: scenarios.map(
+      ({ timings, budgets, passed: _passed, ...scenario }) => {
+        const regressions = scenarioComparisons.get(scenario.name) ?? [];
+        return {
+          ...scenario,
+          informationalTargets: budgets.map(({ passed, ...target }) => ({
+            ...target,
+            withinTarget: passed,
+          })),
+          passed: regressionGatePassed(baseline !== null, regressions),
+          evidence: {
+            scenario: scenario.name,
+            executionKind: evidenceKind,
+            platformContract: options.platform,
+            device: options.device,
+            runtime: `${operatingSystem()} ${release()}; ${process.version}`,
+            peakResourceBytes: Math.max(
+              scenario.metrics.peakResourceBytes ?? 0,
+              scenario.memory.peakWorkingBytes,
+              scenario.metrics.trackedRenderBytes ?? 0,
+              scenario.metrics.peakWorkingBytes ?? 0,
+            ),
+            settledResourceBytes:
+              scenario.metrics.settledResourceBytes ??
+              scenario.metrics.settledViewingRetainedBytes ??
+              scenario.memory.retainedBytes,
+            responsivenessP95Ms: timings.p95Ms,
+            cleanupRetainedBytes:
+              scenario.metrics.cleanupRetainedBytes ??
+              scenario.metrics.releasedRenderBytes ??
+              scenario.memory.retainedBytes,
+            baseline: options.baseline ? basename(options.baseline) : null,
+            toleranceFraction: options.tolerance,
+            regressions,
+          },
+          timings: {
+            maxMs: timings.maxMs,
+            p50Ms: timings.p50Ms,
+            p95Ms: timings.p95Ms,
+            sampleCount: timings.samplesMs.length,
+            totalMs: timings.samplesMs.reduce(
+              (total, sample) => total + sample,
+              0,
+            ),
+          },
+        };
       },
-    })),
-    passed: scenarios.every((scenario) => scenario.passed),
+    ),
+    passed: regressionGatePassed(
+      baseline !== null,
+      [...scenarioComparisons.values()].flat(),
+      options.forceBudgetFailure,
+    ),
   });
   const json = `${JSON.stringify(report, null, 2)}\n`;
   if (options.output) {

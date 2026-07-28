@@ -1,13 +1,21 @@
+import { readFile } from "node:fs/promises";
+
 import { describe, expect, it } from "vitest";
 
 import {
+  compareScenarioToBaseline,
   evaluateScenario,
   memorySummary,
   percentile,
+  regressionGatePassed,
   summarizeTimings,
   type ScenarioObservation,
 } from "../benchmarks/harness";
-import { parseArguments } from "../benchmarks/run";
+import {
+  parseArguments,
+  validateBaselineIdentity,
+  validateBaselineWorkload,
+} from "../benchmarks/run";
 import {
   blankRlePage,
   REFERENCE_GRID_PAGES,
@@ -36,6 +44,22 @@ const observation = (): ScenarioObservation => ({
 });
 
 describe("performance harness", () => {
+  it("keeps numeric Performance-budget policy out of production operations", async () => {
+    const production = (
+      await Promise.all(
+        [
+          "../src/main.ts",
+          "../src/note/notebook-service.ts",
+          "../src/ocr/api-ocr.ts",
+        ].map((path) => readFile(new URL(path, import.meta.url), "utf8")),
+      )
+    ).join("\n");
+
+    expect(production).not.toMatch(
+      /MOBILE_RENDER_BUDGET|DESKTOP_RENDER_BUDGET|DOCUMENT_REQUEST_BYTE_LIMIT|resource budget/i,
+    );
+  });
+
   it("uses nearest-rank percentiles and keeps raw samples", () => {
     expect(percentile([5, 1, 4, 2, 3], 50)).toBe(3);
     expect(percentile([5, 1, 4, 2, 3], 95)).toBe(5);
@@ -65,6 +89,52 @@ describe("performance harness", () => {
       metric: "forcedFailure",
       passed: false,
     });
+  });
+
+  it("gates CI only on matching-baseline regressions, not absolute targets", () => {
+    expect(regressionGatePassed(false, [])).toBe(true);
+    expect(
+      regressionGatePassed(true, [
+        {
+          metric: "duration",
+          baseline: 2,
+          actual: 3,
+          toleranceFraction: 0.2,
+          limit: 2.4,
+          passed: false,
+        },
+      ]),
+    ).toBe(false);
+  });
+
+  it("fails a meaningful regression against a matching scenario baseline", () => {
+    const current = evaluateScenario(observation());
+    const comparisons = compareScenarioToBaseline(
+      current,
+      { name: "test", metrics: { duration: 2 } },
+      0.2,
+    );
+
+    expect(comparisons).toEqual([
+      {
+        metric: "duration",
+        baseline: 2,
+        actual: 3,
+        toleranceFraction: 0.2,
+        limit: 2.4,
+        passed: false,
+      },
+    ]);
+  });
+
+  it("does not silently drop a metric required by the reviewed baseline", () => {
+    expect(() =>
+      compareScenarioToBaseline(
+        evaluateScenario(observation()),
+        { name: "test", metrics: { missing: 2 } },
+        0.2,
+      ),
+    ).toThrow(/did not report baseline metric missing/);
   });
 
   it("uses component timings for split startup long tasks", () => {
@@ -110,6 +180,37 @@ describe("performance harness", () => {
       profile: "smoke",
       record: true,
       scenarios: ["page-rendering", "run-log-streaming"],
+      tolerance: 0.2,
     });
+  });
+
+  it("rejects a baseline captured for a different execution profile", () => {
+    expect(() =>
+      validateBaselineIdentity(
+        {
+          device: "iphone",
+          platform: "mobile",
+          profile: "standard",
+        },
+        {
+          environment: { device: "desktop", platform: "desktop" },
+          profile: "standard",
+          scenarios: [],
+        },
+      ),
+    ).toThrow(/must match device, platform contract, and workload profile/);
+  });
+
+  it("rejects a same-profile baseline with a different scenario workload", () => {
+    expect(() =>
+      validateBaselineWorkload(
+        { name: "page-rendering", workload: { pages: 20 } },
+        {
+          name: "page-rendering",
+          workload: { pages: 10 },
+          metrics: {},
+        },
+      ),
+    ).toThrow(/baseline workload does not match/);
   });
 });

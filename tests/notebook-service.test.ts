@@ -176,12 +176,12 @@ describe("NotebookService", () => {
     first.close();
     expect(
       worker.requests.filter((request) => request.type === "close"),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
 
     second.close();
     expect(
       worker.requests.filter((request) => request.type === "close"),
-    ).toHaveLength(0);
+    ).toHaveLength(1);
     retained.close();
     expect(
       worker.requests.filter((request) => request.type === "close"),
@@ -429,7 +429,7 @@ describe("NotebookService", () => {
         canvasBytes: 0,
       }),
     ).toMatchObject({
-      admitted: false,
+      updated: false,
       reason: "unavailable",
     });
     expect(() => lease.close()).not.toThrow();
@@ -439,11 +439,10 @@ describe("NotebookService", () => {
     expect(notifyRenderingUnavailable).toHaveBeenCalledOnce();
   });
 
-  it("rejects a larger canvas allocation without changing the admitted view", async () => {
+  it("tracks a larger canvas allocation without rejecting the view", async () => {
     const worker = new ScriptedWorker();
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 20,
     });
     const lease = await service.open({
       path: descriptor.path,
@@ -458,7 +457,7 @@ describe("NotebookService", () => {
         gridOpen: false,
         canvasBytes: 4,
       }),
-    ).toEqual({ admitted: true });
+    ).toEqual({ updated: true });
     expect(service.snapshot().retainedCanvasBytes).toBe(4);
 
     expect(
@@ -468,13 +467,10 @@ describe("NotebookService", () => {
         gridOpen: false,
         canvasBytes: 18,
       }),
-    ).toMatchObject({
-      admitted: false,
-      reason: "resource-budget",
-    });
+    ).toEqual({ updated: true });
     expect(service.snapshot()).toMatchObject({
-      retainedCanvasBytes: 4,
-      retainedBytes: 7,
+      retainedCanvasBytes: 18,
+      retainedBytes: 21,
     });
 
     lease.close();
@@ -771,6 +767,76 @@ describe("NotebookService", () => {
     lease.close();
   });
 
+  it("keeps explicit exports queued beyond speculative backpressure", async () => {
+    const worker = new ScriptedWorker();
+    const service = new NotebookService({
+      createWorker: () => worker as unknown as Worker,
+      maxConcurrentRenders: 1,
+      maxQueuedRenders: 1,
+    });
+    const lease = await service.open({
+      path: descriptor.path,
+      revision: descriptor.revision,
+      bytes: new Uint8Array([1, 2, 3]),
+    });
+    lease.updateView({
+      visible: true,
+      currentPage: 1,
+      gridOpen: false,
+    });
+
+    const display = lease.bitmap(1);
+    const firstExport = lease.renderPng(1);
+    const secondExport = lease.renderPng(2);
+
+    expect(service.snapshot()).toMatchObject({
+      queuedRenders: 2,
+      cancelledRenders: 0,
+    });
+
+    const displayRequest = worker.requests.find(
+      (
+        request,
+      ): request is Extract<NotebookWorkerRequest, { type: "render" }> =>
+        request.type === "render",
+    )!;
+    worker.respondBitmap(displayRequest);
+    (await display).release();
+
+    for (const expectedPage of [1, 2]) {
+      await vi.waitFor(() => {
+        expect(
+          worker.requests.filter((request) => request.type === "render"),
+        ).toHaveLength(expectedPage + 1);
+      });
+      const request = worker.requests.filter(
+        (
+          candidate,
+        ): candidate is Extract<NotebookWorkerRequest, { type: "render" }> =>
+          candidate.type === "render",
+      )[expectedPage]!;
+      expect(request).toMatchObject({
+        output: "png",
+        pageNumber: expectedPage,
+      });
+      worker.onmessage?.({
+        data: {
+          type: "rendered",
+          id: request.id,
+          sessionId: request.sessionId,
+          generation: request.generation,
+          output: "png",
+          page: { png: new Uint8Array([expectedPage]), width: 5, height: 1 },
+        },
+      } as MessageEvent<NotebookWorkerResponse>);
+    }
+
+    await expect(firstExport).resolves.toMatchObject({ width: 5, height: 1 });
+    await expect(secondExport).resolves.toMatchObject({ width: 5, height: 1 });
+    expect(service.snapshot().cancelledRenders).toBe(0);
+    lease.close();
+  });
+
   it("cancels a bitmap render when its final waiter aborts", async () => {
     const worker = new ScriptedWorker();
     const service = new NotebookService({
@@ -892,63 +958,59 @@ describe("NotebookService", () => {
     lease.close();
   });
 
-  it("evicts and reloads hidden worker sources to enforce the global budget", async () => {
+  it("suspends and reloads an inactive worker source", async () => {
     const worker = new ScriptedWorker();
     worker.descriptorMetadataBytes = 2;
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 24,
     });
     const loadFirst = vi.fn(async () => new Uint8Array([1, 2, 3, 4]));
-    const loadSecond = vi.fn(async () => new Uint8Array([5, 6, 7, 8]));
     const firstSource = {
       path: "supernote/First.note",
       revision: "mtime:1",
       load: loadFirst,
     };
-    const secondSource = {
-      path: "supernote/Second.note",
-      revision: "mtime:1",
-      load: loadSecond,
-    };
 
     const first = await service.open(firstSource);
-    const second = await service.open(secondSource);
-
-    expect(service.snapshot()).toMatchObject({
-      activeSessions: 2,
-      retainedSourceBytes: 4,
-      retainedParsedBytes: 4,
-      retainedBytes: 8,
-      sessions: [
-        expect.objectContaining({ path: firstSource.path, parsedBytes: 2 }),
-        expect.objectContaining({ path: secondSource.path, parsedBytes: 2 }),
-      ],
+    first.updateView({
+      visible: true,
+      currentPage: 1,
+      gridOpen: false,
     });
+    first.updateView({
+      visible: false,
+      currentPage: null,
+      gridOpen: false,
+    });
+
     expect(
       worker.requests.filter((request) => request.type === "close"),
     ).toHaveLength(1);
+    expect(service.snapshot()).toMatchObject({
+      activeSessions: 1,
+      retainedSourceBytes: 0,
+      retainedParsedBytes: 2,
+    });
 
     const sharedFirst = await service.open(firstSource);
     expect(loadFirst).toHaveBeenCalledTimes(2);
-    expect(loadSecond).toHaveBeenCalledTimes(1);
-    expect(service.snapshot().retainedBytes).toBeLessThanOrEqual(24);
+    expect(service.snapshot()).toMatchObject({
+      retainedSourceBytes: 4,
+      retainedParsedBytes: 2,
+    });
     expect(
       worker.requests.filter((request) => request.type === "open"),
-    ).toHaveLength(3);
+    ).toHaveLength(2);
 
     sharedFirst.close();
     first.close();
-    second.close();
   });
 
-  it("reclaims a visible reloadable source for bounded notebook inspection", async () => {
+  it("keeps a visible source resident during notebook inspection", async () => {
     const worker = new ScriptedWorker();
     worker.descriptorMetadataBytes = 2;
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 24,
-      transientResourceBudgetBytes: 32,
     });
     const loadVisible = vi.fn(async () => new Uint8Array([1, 2, 3, 4]));
     const visibleSource = {
@@ -963,19 +1025,14 @@ describe("NotebookService", () => {
       gridOpen: false,
     });
 
-    const inspection = await service.open(
-      {
-        path: "candidate:changed:supernote/Changed.note",
-        revision: "changed",
-        bytes: new Uint8Array([5, 6, 7, 8]),
-        transfer: "copy",
-      },
-      { reclaim: "reloadable", budget: "transient" },
-    );
+    const inspection = await service.open({
+      path: "candidate:changed:supernote/Changed.note",
+      revision: "changed",
+      bytes: new Uint8Array([5, 6, 7, 8]),
+      transfer: "copy",
+    });
 
     expect(service.snapshot()).toMatchObject({
-      budgetBytes: 24,
-      transientBudgetBytes: 32,
       retainedBytes: 12,
       sessions: [
         expect.objectContaining({
@@ -1001,48 +1058,28 @@ describe("NotebookService", () => {
     visible.close();
   });
 
-  it("keeps transient notebook inspection within its separate ceiling", async () => {
+  it("opens a source beyond the former global resource budget boundary", async () => {
     const worker = new ScriptedWorker();
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 24,
-      transientResourceBudgetBytes: 32,
+    });
+    const sourceBytes = 26 * 1024 * 1024;
+
+    const lease = await service.open({
+      path: descriptor.path,
+      revision: descriptor.revision,
+      bytes: new Uint8Array(sourceBytes),
     });
 
-    await expect(
-      service.open(
-        {
-          path: "candidate:oversized:supernote/Oversized.note",
-          revision: "oversized",
-          bytes: new Uint8Array(7),
-          transfer: "copy",
-        },
-        { reclaim: "reloadable", budget: "transient" },
-      ),
-    ).rejects.toThrow("source exceeds the 32-byte resource budget");
-    expect(service.snapshot().retainedBytes).toBe(0);
-  });
-
-  it("rejects a source that cannot fit inside the global resource budget", async () => {
-    const worker = new ScriptedWorker();
-    const service = new NotebookService({
-      createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 3,
-    });
-
-    await expect(
-      service.open({
-        path: descriptor.path,
-        revision: descriptor.revision,
-        bytes: new Uint8Array([1, 2, 3, 4]),
-      }),
-    ).rejects.toThrow("source exceeds the 3-byte resource budget");
     expect(service.snapshot()).toMatchObject({
-      activeSessions: 0,
-      retainedSourceBytes: 0,
-      retainedBytes: 0,
+      activeSessions: 1,
+      retainedSourceBytes: sourceBytes,
+      retainedParsedBytes: 0,
     });
-    expect(worker.requests).toHaveLength(0);
+    expect(worker.requests).toHaveLength(1);
+
+    lease.close();
+    expect(service.snapshot().retainedBytes).toBe(0);
   });
 
   it("reserves the bitmap-background decode peak", async () => {
@@ -1061,7 +1098,6 @@ describe("NotebookService", () => {
     };
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 88,
     });
     const lease = await service.open({
       path: descriptor.path,
@@ -1082,7 +1118,7 @@ describe("NotebookService", () => {
     lease.close();
   });
 
-  it("accounts mobile canvases and admits native PDF PNG export without duplicate bitmaps", async () => {
+  it("accounts mobile canvases and renders native PDF PNG without duplicate bitmaps", async () => {
     const worker = new ScriptedWorker();
     worker.autoRender = true;
     worker.pageWidth = 1_920;
@@ -1111,7 +1147,6 @@ describe("NotebookService", () => {
     });
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 96 * 1_024 * 1_024,
       maxConcurrentRenders: 1,
     });
     const lease = await service.open({
@@ -1158,63 +1193,6 @@ describe("NotebookService", () => {
       retainedBitmapBytes: 0,
       pinnedBitmapBytes: 0,
     });
-    lease.close();
-  });
-
-  it("evicts least-recently-used unpinned bitmaps to stay inside the byte budget", async () => {
-    const worker = new ScriptedWorker();
-    worker.autoRender = true;
-    let bitmapId = 0;
-    Object.defineProperty(worker, "bitmap", {
-      get: () =>
-        ({
-          id: ++bitmapId,
-          width: 5,
-          height: 2,
-          close: vi.fn(),
-        }) as unknown as ImageBitmap,
-    });
-    const service = new NotebookService({
-      createWorker: () => worker as unknown as Worker,
-      resourceBudgetBytes: 163,
-    });
-    const lease = await service.open({
-      path: descriptor.path,
-      revision: descriptor.revision,
-      bytes: new Uint8Array([1, 2, 3]),
-    });
-    lease.updateView({
-      visible: true,
-      currentPage: 1,
-      gridOpen: false,
-    });
-
-    (await lease.bitmap(1)).release();
-    lease.updateView({
-      visible: true,
-      currentPage: 1,
-      gridOpen: true,
-    });
-    (await lease.thumbnailBitmap(1, 5)).release();
-    (await lease.thumbnailBitmap(2, 5)).release();
-
-    expect(service.snapshot()).toMatchObject({
-      budgetBytes: 163,
-      retainedSourceBytes: 3,
-      retainedBitmapBytes: 120,
-      retainedBytes: 123,
-      evictedBitmaps: 0,
-    });
-
-    (await lease.thumbnailBitmap(1, 4)).release();
-    const snapshot = service.snapshot();
-    expect(snapshot.retainedBytes).toBeLessThanOrEqual(163);
-    expect(snapshot.evictedBitmaps).toBe(1);
-    expect(snapshot.retainedBytes).toBe(
-      snapshot.retainedSourceBytes +
-        snapshot.retainedBitmapBytes +
-        snapshot.inFlightBytes,
-    );
     lease.close();
   });
 
@@ -1319,7 +1297,6 @@ describe("NotebookService", () => {
     const service = new NotebookService({
       createWorker: () => worker as unknown as Worker,
       maxConcurrentRenders: 1,
-      resourceBudgetBytes: 80,
     });
     const lease = await service.open({
       path: descriptor.path,
@@ -1353,7 +1330,7 @@ describe("NotebookService", () => {
         worker.requests.filter((request) => request.type === "render"),
       ).toHaveLength(2);
     });
-    expect(firstBitmap.close).toHaveBeenCalledTimes(1);
+    expect(firstBitmap.close).not.toHaveBeenCalled();
     const secondRequest = worker.requests.filter(
       (
         request,
@@ -1363,5 +1340,7 @@ describe("NotebookService", () => {
     worker.respondBitmap(secondRequest, secondBitmap);
     (await second).release();
     lease.close();
+    expect(firstBitmap.close).toHaveBeenCalledTimes(1);
+    expect(secondBitmap.close).toHaveBeenCalledTimes(1);
   });
 });
