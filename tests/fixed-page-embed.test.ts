@@ -44,7 +44,7 @@ const bitmap = {
 const createLease = (
   options: {
     pageCount?: number;
-    admission?: "admitted" | "rejected";
+    viewUpdate?: "updated" | "unavailable";
     bitmapPromise?: Promise<NotebookBitmapHandle>;
   } = {},
 ): NotebookSessionLease => {
@@ -63,9 +63,9 @@ const createLease = (
     updateView: vi
       .fn()
       .mockImplementation(() =>
-        options.admission === "rejected"
-          ? { admitted: false, reason: "resource-budget" }
-          : { admitted: true },
+        options.viewUpdate === "unavailable"
+          ? { updated: false, reason: "unavailable" }
+          : { updated: true },
       ),
     close: vi.fn(),
   };
@@ -216,7 +216,7 @@ describe("fixed page embed authoring and accessibility", () => {
 });
 
 describe("fixed page embed render lifecycle", () => {
-  it("does no notebook work until admitted near the viewport", async () => {
+  it("does no notebook work until activated near the viewport", async () => {
     const lease = createLease();
     const notebooks: NotebookSessionProvider = {
       open: vi.fn().mockResolvedValue(lease),
@@ -368,8 +368,8 @@ describe("fixed page embed render lifecycle", () => {
     expect(shorter.close).toHaveBeenCalledOnce();
   });
 
-  it("keeps an admission failure local and never allocates the canvas", async () => {
-    const lease = createLease({ admission: "rejected" });
+  it("keeps an unavailable session local and never allocates the canvas", async () => {
+    const lease = createLease({ viewUpdate: "unavailable" });
     const target = createTarget();
     const renderer = new FixedPageEmbedRenderer({
       notebooks: { open: vi.fn().mockResolvedValue(lease) },
@@ -383,7 +383,7 @@ describe("fixed page embed render lifecycle", () => {
     await vi.waitFor(() =>
       expect(target.show).toHaveBeenCalledWith(
         "unavailable",
-        "Not enough display memory to render page 12.",
+        "Supernote rendering is unavailable.",
       ),
     );
 
@@ -391,7 +391,7 @@ describe("fixed page embed render lifecycle", () => {
     expect(lease.close).toHaveBeenCalledOnce();
   });
 
-  it("opens only admitted members of a 100-embed fixture", async () => {
+  it("opens only activated members of a 100-embed fixture", async () => {
     const notebooks: NotebookSessionProvider = {
       open: vi.fn().mockImplementation(() => Promise.resolve(createLease())),
     };

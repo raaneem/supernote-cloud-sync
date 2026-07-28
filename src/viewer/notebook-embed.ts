@@ -201,16 +201,14 @@ export class NotebookEmbedRenderer {
       this.displayedPage = this.clamp(this.displayedPage);
       this.desiredPage = this.displayedPage;
       this.options.target.pageChanged(this.displayedPage, this.totalPages);
-      const admission = opened.updateView({
+      const update = opened.updateView({
         visible: true,
         currentPage: this.displayedPage,
         gridOpen: false,
         canvasBytes: 0,
       });
-      if (!admission.admitted) {
-        this.fail(
-          `Not enough display memory to open ${this.options.path.split("/").at(-1) ?? this.options.path}.`,
-        );
+      if (!update.updated) {
+        this.fail("Supernote rendering is unavailable.");
         return;
       }
       await this.renderPage(opened, this.displayedPage);
@@ -243,18 +241,18 @@ export class NotebookEmbedRenderer {
     this.cancelRender();
     const previousPage = this.displayedPage;
     const previousBytes = this.canvasBytes;
-    const currentAdmission = session.updateView({
+    const currentUpdate = session.updateView({
       visible: true,
       currentPage: pageNumber,
       gridOpen: false,
       canvasBytes: previousBytes,
     });
-    if (!currentAdmission.admitted) {
+    if (!currentUpdate.updated) {
       this.rejectNavigation(
         session,
         previousPage,
         previousBytes,
-        `Not enough display memory to render page ${pageNumber}.`,
+        "Supernote rendering is unavailable.",
       );
       return;
     }
@@ -294,18 +292,18 @@ export class NotebookEmbedRenderer {
         displayHeight: box.height,
         devicePixelRatio: box.devicePixelRatio,
       });
-      const admission = session.updateView({
+      const update = session.updateView({
         visible: true,
         currentPage: pageNumber,
         gridOpen: false,
         canvasBytes: backing.bytes,
       });
-      if (!admission.admitted) {
+      if (!update.updated) {
         this.rejectNavigation(
           session,
           previousPage,
           previousBytes,
-          `Not enough display memory to render page ${pageNumber}.`,
+          "Supernote rendering is unavailable.",
         );
         return;
       }

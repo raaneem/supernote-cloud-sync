@@ -23,7 +23,7 @@ describe("InstanceStateStore", () => {
     );
   });
 
-  it("round-trips the session, controls, Pair baseline, and last Send destination", () => {
+  it("round-trips session, controls, Pair state, and device-local diagnostics", () => {
     const storage = new MemoryLocalStorage();
     const store = new InstanceStateStore(storage);
     const state = {
@@ -40,6 +40,17 @@ describe("InstanceStateStore", () => {
           ...emptyPairBaseline(),
           initialized: true,
         },
+      },
+      performanceDiagnostics: {
+        active: [
+          {
+            id: "notebook-open-1",
+            kind: "notebook-open" as const,
+            scope: "opaque-scope",
+            startedAtMs: 100,
+          },
+        ],
+        recent: [],
       },
     };
 

@@ -28,10 +28,26 @@
 }
 
 .supernote-sync-file-name {
+  display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.supernote-sync-file-description {
+  min-width: 0;
+}
+
+.supernote-sync-file-subtitle {
+  color: var(--text-muted);
+  display: block;
+  font-size: var(--font-ui-smaller);
+  margin-block-start: 2px;
+}
+
+.supernote-sync-file-subtitle.is-error {
+  color: var(--text-error);
 }
 
 .supernote-sync-status {
@@ -161,6 +177,10 @@
   width: 100%;
 }
 
+.supernote-sync-browser-results {
+  width: 100%;
+}
+
 .supernote-sync-file-primary {
   align-items: center;
   color: var(--text-normal);
@@ -219,19 +239,232 @@
   padding-inline-start: var(--size-4-2);
 }
 
-@media (max-width: 600px) {
-  .supernote-sync-browser-modal {
-    height: calc(100vh - 24px);
-    width: calc(100vw - 16px);
-  }
+.supernote-sync-browser-modal.is-mobile {
+  bottom: auto;
+  height: calc(
+    100vh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) -
+      16px
+  );
+  height: calc(
+    100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) -
+      16px
+  );
+  left: 8px;
+  margin: 0;
+  max-height: none;
+  max-width: none;
+  position: absolute;
+  right: 8px;
+  top: calc(env(safe-area-inset-top, 0px) + 8px);
+  transform: none;
+  width: auto;
+}
 
-  .supernote-sync-file-row {
-    align-items: flex-start;
-  }
+.supernote-sync-browser-modal.is-mobile .modal-title {
+  min-height: 44px;
+  padding-inline-end: 56px;
+}
 
-  .supernote-sync-file-controls {
-    align-items: flex-end;
-    flex-direction: column;
+.supernote-sync-browser-modal.is-mobile .modal-close-button {
+  height: 44px;
+  right: var(--size-4-2);
+  top: var(--size-4-2);
+  width: 44px;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-browser-navigation {
+  margin-block-end: var(--size-4-2);
+  min-height: 44px;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-browser-breadcrumbs {
+  gap: var(--size-4-2);
+  overflow: hidden;
+}
+
+.supernote-sync-browser-mobile-location {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-browser-current-action {
+  min-width: 44px;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-browser-list {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-row {
+  align-items: center;
+  border-block-end: 1px solid var(--background-modifier-border);
+  border-radius: 0;
+  gap: var(--size-4-2);
+  min-height: 68px;
+  padding: var(--size-4-2) var(--size-4-1);
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-row:active {
+  background: var(--background-modifier-hover);
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-primary {
+  pointer-events: none;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-icon {
+  align-items: center;
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-description {
+  flex: 1;
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-name {
+  font-size: var(--font-ui-medium);
+}
+
+.supernote-sync-browser-modal.is-mobile .supernote-sync-file-controls {
+  align-items: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.supernote-sync-file-trailing-icon {
+  align-items: center;
+  color: var(--text-muted);
+  display: inline-flex;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+}
+
+.supernote-sync-file-trailing-icon.is-spinning {
+  animation: supernote-sync-spin 900ms linear infinite;
+}
+
+.supernote-sync-file-action-spinner {
+  align-items: center;
+  display: inline-flex;
+  margin-inline-end: var(--size-4-1);
+}
+
+.supernote-sync-file-action-spinner.is-spinning {
+  animation: supernote-sync-spin 900ms linear infinite;
+}
+
+.supernote-sync-browser-skeletons {
+  width: 100%;
+}
+
+.supernote-sync-browser-skeleton-row {
+  align-items: center;
+  border-block-end: 1px solid var(--background-modifier-border);
+  display: flex;
+  gap: var(--size-4-2);
+  min-height: 68px;
+  padding: var(--size-4-2) var(--size-4-1);
+}
+
+.supernote-sync-browser-skeleton-icon,
+.supernote-sync-browser-skeleton-name,
+.supernote-sync-browser-skeleton-subtitle {
+  animation: supernote-sync-skeleton 1.2s ease-in-out infinite;
+  background: color-mix(
+    in srgb,
+    var(--background-modifier-hover) 78%,
+    var(--text-faint)
+  );
+  border-radius: var(--radius-s);
+  display: block;
+}
+
+.supernote-sync-browser-skeleton-icon {
+  border-radius: var(--radius-m);
+  height: 32px;
+  width: 32px;
+}
+
+.supernote-sync-browser-skeleton-text {
+  flex: 1;
+}
+
+.supernote-sync-browser-skeleton-name {
+  height: 12px;
+  max-width: 240px;
+  width: 64%;
+}
+
+.supernote-sync-browser-skeleton-subtitle {
+  height: 9px;
+  margin-block-start: 8px;
+  width: 34%;
+}
+
+.supernote-sync-browser-results.is-entering-forward,
+.supernote-sync-browser-skeletons.is-entering-forward {
+  animation: supernote-sync-enter-forward 180ms ease-out;
+}
+
+.supernote-sync-browser-results.is-entering-back,
+.supernote-sync-browser-skeletons.is-entering-back {
+  animation: supernote-sync-enter-back 180ms ease-out;
+}
+
+.supernote-sync-browser-results.is-entering,
+.supernote-sync-browser-skeletons.is-entering {
+  animation: supernote-sync-enter 150ms ease-out;
+}
+
+@keyframes supernote-sync-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+@keyframes supernote-sync-enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-14px);
+  }
+}
+
+@keyframes supernote-sync-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes supernote-sync-skeleton {
+  50% {
+    opacity: 0.48;
+  }
+}
+
+@keyframes supernote-sync-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .supernote-sync-browser-results,
+  .supernote-sync-browser-skeletons,
+  .supernote-sync-file-trailing-icon.is-spinning,
+  .supernote-sync-file-action-spinner.is-spinning,
+  .supernote-sync-browser-skeleton-icon,
+  .supernote-sync-browser-skeleton-name,
+  .supernote-sync-browser-skeleton-subtitle {
+    animation: none;
   }
 }
 
@@ -385,13 +618,11 @@
   visibility: hidden;
 }
 
-.supernote-reader.is-chrome-hidden .supernote-reader-bottombar,
-.supernote-reader.is-chrome-hidden .supernote-reader-zoom-control {
+.supernote-reader.is-chrome-hidden .supernote-reader-bottombar {
   pointer-events: none;
 }
 
-.supernote-reader-bottombar,
-.supernote-reader-zoom-control {
+.supernote-reader-bottombar {
   align-items: center;
   backdrop-filter: blur(14px);
   background: var(--supernote-reader-chrome);
@@ -410,41 +641,6 @@
   transform: translateX(-50%);
 }
 
-.supernote-reader-zoom-control {
-  border-radius: var(--radius-l);
-  bottom: var(--size-4-3);
-  direction: ltr;
-  right: var(--size-4-3);
-}
-
-.supernote-reader-zoom-button,
-.supernote-reader-zoom-value {
-  align-items: center;
-  display: inline-flex;
-  justify-content: center;
-  min-height: 44px;
-}
-
-.supernote-reader-zoom-button {
-  min-width: 44px;
-}
-
-.supernote-reader-zoom-value {
-  background: transparent;
-  border: 0;
-  box-shadow: none;
-  color: inherit;
-  font: inherit;
-  min-width: 58px;
-  padding: 0 var(--size-4-1);
-}
-
-.supernote-reader-zoom-value:hover,
-.supernote-reader-zoom-value:focus-visible {
-  background: var(--background-modifier-hover);
-  box-shadow: none;
-}
-
 .supernote-reader-icon {
   color: inherit;
 }
@@ -454,13 +650,34 @@
   text-align: center;
 }
 
-@media (max-width: 600px) {
-  .supernote-reader-zoom-control {
-    bottom: calc(var(--size-4-3) + 60px);
-    left: 50%;
-    right: auto;
-    transform: translateX(-50%);
-  }
+.is-mobile .supernote-reader-bottombar {
+  border: 1px solid var(--background-modifier-border);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + var(--size-4-2));
+  box-shadow: var(--shadow-s);
+  gap: 0;
+  min-height: 52px;
+  padding: var(--size-2-2);
+}
+
+.is-mobile .supernote-reader-bottombar button {
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  min-height: 44px;
+  min-width: 44px;
+  padding: var(--size-4-2);
+}
+
+.is-mobile .supernote-reader-bottombar button:hover,
+.is-mobile .supernote-reader-bottombar button:focus-visible {
+  background: var(--background-modifier-hover);
+  box-shadow: none;
+}
+
+.is-mobile .supernote-reader-counter {
+  font-size: var(--font-ui-medium);
+  min-width: 76px;
+  padding-inline: var(--size-4-1);
 }
 
 .supernote-reader.is-grid {

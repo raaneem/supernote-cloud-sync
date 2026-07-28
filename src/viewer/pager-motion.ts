@@ -52,14 +52,14 @@ export const pageTransition = (
   };
 };
 
-export const admittedPageTransition = (
+export const preparedPageTransition = (
   currentPage: number,
   targetPage: number,
   rtl: boolean,
-  admitTarget: (pageNumber: number) => boolean,
+  prepareTarget: (pageNumber: number) => boolean,
 ): PageTransition | null => {
   const transition = pageTransition(currentPage, targetPage, rtl);
-  return transition && admitTarget(targetPage) ? transition : null;
+  return transition && prepareTarget(targetPage) ? transition : null;
 };
 
 export const pageTransitionRenderTarget = (

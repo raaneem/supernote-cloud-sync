@@ -56,7 +56,16 @@ describe("worker-owned notebook boundary", () => {
     expect(reader).not.toContain("canvas.getBoundingClientRect()");
     expect(noteView).toContain('cls: "supernote-reader-staging"');
     expect(noteView).not.toContain("staging.hidden = true");
-    expect(noteView).toContain("replacement.rejectedInitialPageAdmission");
+    expect(noteView).toContain("replacement.initialPagePreparationFailed");
+    expect(noteView).toContain('text: "Retry"');
+    expect(noteView).toContain('text: "Copy diagnostics"');
+    expect(noteView).not.toContain("[DEBUG-ios-note-open]");
+    expect(
+      noteView.slice(
+        noteView.indexOf("private renderOpenFailure"),
+        noteView.indexOf("private async loadRevision"),
+      ),
+    ).not.toContain("file.path");
     expect(runtime).not.toContain("applyDarkDisplayTheme");
     expect(runtime).not.toContain("decodedPages");
     expect(styles).toContain(".theme-dark .supernote-reader-canvas");
@@ -67,7 +76,7 @@ describe("worker-owned notebook boundary", () => {
     expect(styles).toContain(
       ".supernote-generated-preview img.supernote-page-reader-trigger",
     );
-    expect(main).toContain("MOBILE_RENDER_BUDGET_BYTES");
+    expect(main).not.toContain("MOBILE_RENDER_BUDGET_BYTES");
     expect(main).toContain("maxConcurrentRenders: Platform.isMobile ? 1 : 2");
   });
 });

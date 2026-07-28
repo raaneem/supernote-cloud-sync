@@ -41,7 +41,7 @@ import {
 import { fixedPageEmbedMarkdown } from "./fixed-page-embed";
 import { notebookEmbedMarkdown } from "./notebook-embed";
 import {
-  admittedPageTransition,
+  preparedPageTransition,
   navigationTarget,
   pageTransitionCommitDecision,
   pageTransitionRenderTarget,
@@ -160,11 +160,7 @@ export class NoteReader {
   private surfaces: PageSurfaces | null = null;
   private chrome: HTMLElement | null = null;
   private counter: HTMLElement | null = null;
-  private zoomControl: HTMLElement | null = null;
-  private zoomOutButton: HTMLButtonElement | null = null;
-  private zoomValueButton: HTMLButtonElement | null = null;
-  private zoomInButton: HTMLButtonElement | null = null;
-  private committedZoomControlKey: string | null = null;
+  private committedZoomToolbarKey: string | null = null;
   private chromeTimer: number | null = null;
   private chromeLastActivity = 0;
   private transformAnimationTimer: number | null = null;
@@ -213,8 +209,7 @@ export class NoteReader {
   private swipeOffset = 0;
   private pinchDistance: number | null = null;
   private dragging: { x: number; y: number } | null = null;
-  private resourceBudgetNoticeShown = false;
-  private initialPageAdmissionRejected = false;
+  private initialPagePreparationDidFail = false;
   private pageDisplayBounds: { width: number; height: number } | null = null;
   private toolbarNotificationsEnabled = false;
 
@@ -302,8 +297,8 @@ export class NoteReader {
     return this.options.session.descriptor.revision;
   }
 
-  get rejectedInitialPageAdmission(): boolean {
-    return this.initialPageAdmissionRejected;
+  get initialPagePreparationFailed(): boolean {
+    return this.initialPagePreparationDidFail;
   }
 
   get toolbarContext(): ReaderToolbarContext {
@@ -311,6 +306,8 @@ export class NoteReader {
       mode: this.viewMode,
       selecting: this.gridSelecting,
       selectedPages: this.state.selectedPages.length,
+      canZoomOut: this.viewportTransform.canZoomOut,
+      canZoomIn: this.viewportTransform.canZoomIn,
     };
   }
 
@@ -332,6 +329,12 @@ export class NoteReader {
     switch (action) {
       case "pages":
         this.renderGrid();
+        break;
+      case "zoom-out":
+        this.changeZoomByStep(-1);
+        break;
+      case "zoom-in":
+        this.changeZoomByStep(1);
         break;
       case "copy-page":
         void this.copyCurrentPageEmbed();
@@ -446,11 +449,7 @@ export class NoteReader {
     this.root.removeClass("is-selecting", "is-motion-active");
     this.chrome = null;
     this.counter = null;
-    this.zoomControl = null;
-    this.zoomOutButton = null;
-    this.zoomValueButton = null;
-    this.zoomInButton = null;
-    this.committedZoomControlKey = null;
+    this.committedZoomToolbarKey = null;
     this.viewportTransform.reset();
 
     const chrome = this.root.createDiv({
@@ -492,12 +491,9 @@ export class NoteReader {
     iconButton(bottom, "chevron-right", "Next page", () => {
       this.navigateBy(1);
     });
-    this.createZoomControl(chrome);
-
     this.updateCounter();
     this.syncTransformGeometry();
-    this.syncZoomControl();
-    this.notifyToolbarChanged();
+    this.syncZoomToolbar();
     this.revealChrome();
     this.root.focus();
     if (
@@ -627,12 +623,12 @@ export class NoteReader {
       return;
     }
 
-    const transition = admittedPageTransition(
+    const transition = preparedPageTransition(
       this.state.currentPage,
       targetPage,
       this.isRtl(),
       (page) =>
-        this.admitSessionView({
+        this.updateSessionViewState({
           visible: this.visible,
           currentPage: this.visible ? page : null,
           gridOpen: false,
@@ -700,7 +696,7 @@ export class NoteReader {
       this.initialPageHandle = undefined;
       try {
         if (!this.drawSurfaceBitmap(surface, pageNumber, handle.bitmap)) {
-          this.initialPageAdmissionRejected = true;
+          this.initialPagePreparationDidFail = true;
         }
       } finally {
         handle.release();
@@ -853,7 +849,7 @@ export class NoteReader {
     this.clearTransitionTimer();
     const { targetPage, direction } = transition;
     if (
-      !this.admitSessionView({
+      !this.updateSessionViewState({
         visible: this.visible,
         currentPage: this.visible ? targetPage : null,
         gridOpen: false,
@@ -1092,7 +1088,7 @@ export class NoteReader {
   }
 
   private updateSessionView(): boolean {
-    return this.admitSessionView({
+    return this.updateSessionViewState({
       visible: this.visible,
       currentPage:
         this.visible && this.viewMode === "pager"
@@ -1106,54 +1102,33 @@ export class NoteReader {
     });
   }
 
-  private admitSessionView(
+  private updateSessionViewState(
     view: Parameters<NotebookSessionLease["updateView"]>[0],
-    notifyRejection = true,
   ): boolean {
-    const admission = this.options.session.updateView(view);
-    if (admission.admitted) {
-      return true;
-    }
-    if (
-      notifyRejection &&
-      this.visible &&
-      admission.reason === "resource-budget" &&
-      !this.resourceBudgetNoticeShown
-    ) {
-      this.resourceBudgetNoticeShown = true;
-      new Notice(
-        "This Supernote view needs more display memory. Close another reader or the page grid, then try again.",
-        10_000,
-      );
-    }
-    return false;
+    return this.options.session.updateView(view).updated;
   }
 
   private resizeCanvas(
     canvas: HTMLCanvasElement,
     width: number,
     height: number,
-    notifyRejection = true,
   ): boolean {
     const bytes = width * height * 4;
     const previous = this.canvasAllocations.get(canvas) ?? 0;
     const retainedCanvasBytes = this.retainedCanvasBytes - previous + bytes;
     if (
-      !this.admitSessionView(
-        {
-          visible: this.visible,
-          currentPage:
-            this.visible && this.viewMode === "pager"
-              ? pageTransitionRenderTarget(
-                  this.state.currentPage,
-                  this.activeTransition?.targetPage ?? null,
-                )
-              : null,
-          gridOpen: this.visible && this.viewMode === "grid",
-          canvasBytes: retainedCanvasBytes,
-        },
-        notifyRejection,
-      )
+      !this.updateSessionViewState({
+        visible: this.visible,
+        currentPage:
+          this.visible && this.viewMode === "pager"
+            ? pageTransitionRenderTarget(
+                this.state.currentPage,
+                this.activeTransition?.targetPage ?? null,
+              )
+            : null,
+        gridOpen: this.visible && this.viewMode === "grid",
+        canvasBytes: retainedCanvasBytes,
+      })
     ) {
       return false;
     }
@@ -1301,7 +1276,7 @@ export class NoteReader {
         handle.release();
       }
     } catch {
-      // A layout refresh is opportunistic; keep the last admitted canvas.
+      // A layout refresh is opportunistic; keep the last prepared canvas.
     }
   }
 
@@ -1309,37 +1284,6 @@ export class NoteReader {
     this.counter?.setText(
       `${this.state.currentPage} / ${this.state.pageCount}`,
     );
-  }
-
-  private createZoomControl(parent: HTMLElement): void {
-    const control = parent.createDiv({
-      cls: "supernote-reader-zoom-control",
-      attr: {
-        role: "group",
-        "aria-label": "Zoom, 100 percent",
-      },
-    });
-    this.zoomControl = control;
-    this.zoomOutButton = iconButton(control, "minus", "Zoom out", () => {
-      this.changeZoomByStep(-1);
-    });
-    this.zoomOutButton.addClass("supernote-reader-zoom-button");
-    this.zoomValueButton = control.createEl("button", {
-      cls: "supernote-reader-zoom-value",
-      text: "100%",
-      attr: {
-        type: "button",
-        "aria-label": "Current zoom 100 percent. Return to fit.",
-      },
-    });
-    this.zoomValueButton.addEventListener("click", (event) => {
-      event.stopPropagation();
-      this.returnToFit();
-    });
-    this.zoomInButton = iconButton(control, "plus", "Zoom in", () => {
-      this.changeZoomByStep(1);
-    });
-    this.zoomInButton.addClass("supernote-reader-zoom-button");
   }
 
   private changeZoomByStep(direction: -1 | 1): void {
@@ -1361,27 +1305,15 @@ export class NoteReader {
     }
   }
 
-  private syncZoomControl(zoom = this.viewportTransform.snapshot.zoom): void {
-    const percentage = Math.round(zoom * 100);
+  private syncZoomToolbar(): void {
     const atMinimum = !this.viewportTransform.canZoomOut;
     const atMaximum = !this.viewportTransform.canZoomIn;
-    const controlKey = `${percentage}:${atMinimum}:${atMaximum}`;
-    if (this.committedZoomControlKey === controlKey) {
+    const toolbarKey = `${atMinimum}:${atMaximum}`;
+    if (this.committedZoomToolbarKey === toolbarKey) {
       return;
     }
-    this.committedZoomControlKey = controlKey;
-    this.zoomControl?.setAttr("aria-label", `Zoom, ${percentage} percent`);
-    this.zoomValueButton?.setText(`${percentage}%`);
-    this.zoomValueButton?.setAttr(
-      "aria-label",
-      `Current zoom ${percentage} percent. Return to fit.`,
-    );
-    if (this.zoomOutButton) {
-      this.zoomOutButton.disabled = atMinimum;
-    }
-    if (this.zoomInButton) {
-      this.zoomInButton.disabled = atMaximum;
-    }
+    this.committedZoomToolbarKey = toolbarKey;
+    this.notifyToolbarChanged();
   }
 
   private notifyToolbarChanged(): void {
@@ -1467,7 +1399,7 @@ export class NoteReader {
           writes.canvas.animate === true && !this.prefersReducedMotion(),
         );
         canvas.style.transform = `translate(${writes.canvas.panX}px, ${writes.canvas.panY}px) scale(${writes.canvas.zoom})`;
-        this.syncZoomControl(writes.canvas.zoom);
+        this.syncZoomToolbar();
       }
     }
   }
@@ -2036,7 +1968,7 @@ export class NoteReader {
         attr: { width: "1", height: "1" },
       });
       canvas.dataset.pageNumber = String(pageNumber);
-      this.resizeCanvas(canvas, 1, 1, false);
+      this.resizeCanvas(canvas, 1, 1);
       card.createSpan({
         cls: "supernote-reader-thumbnail-label",
         text: `Page ${pageNumber}`,

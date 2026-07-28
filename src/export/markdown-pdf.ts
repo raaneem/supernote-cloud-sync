@@ -330,10 +330,8 @@ export class MarkdownPdfRenderer {
   async render(markdown: string): Promise<Uint8Array> {
     const pdf = await PDFDocument.create();
     pdf.registerFontkit(fontkit);
-    const regular = await pdf.embedFont(this.regularFontBytes, {
-      subset: true,
-    });
-    const bold = await pdf.embedFont(this.boldFontBytes, { subset: true });
+    const regular = await pdf.embedFont(this.regularFontBytes);
+    const bold = await pdf.embedFont(this.boldFontBytes);
     const tokens = Lexer.lex(stripFrontmatter(markdown), {
       gfm: true,
     });

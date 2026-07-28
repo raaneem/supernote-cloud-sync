@@ -257,11 +257,9 @@ export class FixedPageEmbedRenderer {
           currentPage: this.options.pageNumber,
           gridOpen: false,
           canvasBytes: 0,
-        }).admitted
+        }).updated
       ) {
-        this.fail(
-          `Not enough display memory to render page ${this.options.pageNumber}.`,
-        );
+        this.fail("Supernote rendering is unavailable.");
         return;
       }
       await this.render(opened);
@@ -326,16 +324,14 @@ export class FixedPageEmbedRenderer {
         displayHeight: box.height,
         devicePixelRatio: box.devicePixelRatio,
       });
-      const admission = session.updateView({
+      const update = session.updateView({
         visible: true,
         currentPage: this.options.pageNumber,
         gridOpen: false,
         canvasBytes: backing.bytes,
       });
-      if (!admission.admitted) {
-        this.fail(
-          `Not enough display memory to render page ${this.options.pageNumber}.`,
-        );
+      if (!update.updated) {
+        this.fail("Supernote rendering is unavailable.");
         return;
       }
       this.options.target.draw(handle.bitmap, backing);

@@ -14,6 +14,11 @@ import type {
   NotebookSessionProvider,
 } from "../note/notebook-service";
 import {
+  performanceFailureCategory,
+  type ActivePerformanceOperation,
+  type PerformanceOperationOutcome,
+} from "../onboarding/performance-diagnostics";
+import {
   NoteReader,
   type ViewerExporter,
   type ViewerExportDefaults,
@@ -41,6 +46,20 @@ const mobileReaderNavbarVisibility =
 
 interface NoteViewDependencies {
   notebooks: NotebookSessionProvider;
+  beginNotebookOpen: (scope: string) => Promise<ActivePerformanceOperation>;
+  finishNotebookOpen: (
+    operation: ActivePerformanceOperation,
+    result: {
+      outcome: Exclude<PerformanceOperationOutcome, "interrupted">;
+      peakTrackedBytes: number | null;
+      settledTrackedBytes: number | null;
+      failureCategory?: string | null;
+    },
+  ) => Promise<void>;
+  consumeInterruptedNotebookOpen: (scope: string) => boolean;
+  isAutomaticWorkspaceRestore: () => boolean;
+  trackedNotebookBytes: () => number;
+  copyDiagnostics: () => Promise<void>;
   getTranscriptionAvailability: () => TranscriptionAvailability;
   getTargetFolder: () => string;
   exportPages: ViewerExporter;
@@ -144,6 +163,7 @@ export class SupernoteNoteView extends FileView {
     const presentation = readerToolbarPresentation({
       ...context,
       compact: this.readerToolbarCompact,
+      showZoomControls: !Platform.isMobile,
     });
     this.currentReaderToolbarPresentation = presentation;
     for (const action of presentation.visibleActions) {
@@ -278,14 +298,90 @@ export class SupernoteNoteView extends FileView {
 
   async onLoadFile(file: TFile): Promise<void> {
     await super.onLoadFile(file);
-    await this.loadRevision(file);
+    const scope = `${file.stat.size}:${file.stat.mtime}`;
+    const interrupted = this.dependencies.consumeInterruptedNotebookOpen(scope);
+    if (interrupted && this.dependencies.isAutomaticWorkspaceRestore()) {
+      this.renderOpenFailure(
+        file,
+        "The previous notebook open did not finish. Retry when ready.",
+      );
+      return;
+    }
+    await this.openWithDiagnostics(file);
   }
 
-  private async loadRevision(file: TFile): Promise<void> {
+  private async openWithDiagnostics(file: TFile): Promise<void> {
+    const scope = `${file.stat.size}:${file.stat.mtime}`;
+    const operation = await this.dependencies.beginNotebookOpen(scope);
+    const beforeBytes = this.dependencies.trackedNotebookBytes();
+    let peakBytes = beforeBytes;
+    const viewWindow = this.contentEl.ownerDocument.defaultView;
+    const sampler = viewWindow?.setInterval(() => {
+      peakBytes = Math.max(peakBytes, this.dependencies.trackedNotebookBytes());
+    }, 50);
+    try {
+      const presented = await this.loadRevision(file);
+      const settledBytes = this.dependencies.trackedNotebookBytes();
+      peakBytes = Math.max(peakBytes, settledBytes);
+      await this.dependencies.finishNotebookOpen(operation, {
+        outcome: presented ? "succeeded" : "cancelled",
+        peakTrackedBytes: peakBytes,
+        settledTrackedBytes: settledBytes,
+      });
+    } catch (error) {
+      const settledBytes = this.dependencies.trackedNotebookBytes();
+      peakBytes = Math.max(peakBytes, settledBytes);
+      await this.dependencies.finishNotebookOpen(operation, {
+        outcome: "failed",
+        peakTrackedBytes: peakBytes,
+        settledTrackedBytes: settledBytes,
+        failureCategory: performanceFailureCategory(error),
+      });
+      this.renderOpenFailure(
+        file,
+        error instanceof Error
+          ? error.message
+          : "The notebook could not be opened.",
+      );
+    } finally {
+      if (viewWindow && sampler !== undefined) {
+        viewWindow.clearInterval(sampler);
+      }
+    }
+  }
+
+  private renderOpenFailure(file: TFile, message: string): void {
+    this.contentEl.empty();
+    this.contentEl.addClass("supernote-note-view");
+    this.contentEl.createEl("h2", {
+      text: "Could not open Supernote notebook",
+    });
+    this.contentEl.createEl("p", {
+      text: message,
+    });
+    const actions = this.contentEl.createDiv({
+      cls: "supernote-reader-failure-actions",
+    });
+    const retry = actions.createEl("button", { text: "Retry" });
+    retry.addEventListener("click", () => {
+      retry.disabled = true;
+      void this.openWithDiagnostics(file).finally(() => {
+        retry.disabled = false;
+      });
+    });
+    const copy = actions.createEl("button", {
+      text: "Copy diagnostics",
+    });
+    copy.addEventListener("click", () => {
+      void this.dependencies.copyDiagnostics();
+    });
+  }
+
+  private async loadRevision(file: TFile): Promise<boolean> {
     const revision = `${file.stat.mtime}:${file.stat.size}`;
     const previous = this.reader;
     if (previous?.sourcePath === file.path && previous.revision === revision) {
-      return;
+      return true;
     }
     const generation = ++this.loadGeneration;
     const sameNotebook = previous?.sourcePath === file.path;
@@ -306,13 +402,13 @@ export class SupernoteNoteView extends FileView {
       });
     } catch (error) {
       if (generation !== this.loadGeneration) {
-        return;
+        return false;
       }
       throw error;
     }
     if (generation !== this.loadGeneration) {
       session.close();
-      return;
+      return false;
     }
     const pageOpen = planPageOpen(
       this.pendingPage,
@@ -328,17 +424,15 @@ export class SupernoteNoteView extends FileView {
     );
     let replacementHandle: NotebookBitmapHandle | null = null;
     try {
-      const admission = session.updateView({
+      const update = session.updateView({
         visible: true,
         currentPage: handoff.currentPage,
         gridOpen: false,
         canvasBytes: 0,
       });
-      if (!admission.admitted) {
+      if (!update.updated) {
         throw new Error(
-          admission.reason === "resource-budget"
-            ? "Could not reserve memory for the updated Supernote notebook."
-            : "Supernote rendering is unavailable for the updated notebook.",
+          "Supernote rendering is unavailable for the updated notebook.",
         );
       }
       replacementHandle = await session.bitmap(handoff.currentPage);
@@ -346,7 +440,7 @@ export class SupernoteNoteView extends FileView {
       replacementHandle?.release();
       session.close();
       if (generation !== this.loadGeneration) {
-        return;
+        return false;
       }
       if (sameNotebook && previous) {
         new Notice(
@@ -357,14 +451,14 @@ export class SupernoteNoteView extends FileView {
           } Reopen the note or sync again to retry.`,
           10_000,
         );
-        return;
+        return true;
       }
       throw error;
     }
     if (generation !== this.loadGeneration) {
       replacementHandle.release();
       session.close();
-      return;
+      return false;
     }
     const staging = this.contentEl.createDiv({
       cls: "supernote-reader-staging",
@@ -406,14 +500,14 @@ export class SupernoteNoteView extends FileView {
           } Reopen the note or sync again to retry.`,
           10_000,
         );
-        return;
+        return true;
       }
       throw error;
     }
-    if (sameNotebook && previous && replacement.rejectedInitialPageAdmission) {
+    if (sameNotebook && previous && replacement.initialPagePreparationFailed) {
       replacement.destroy();
       staging.remove();
-      return;
+      return true;
     }
     previous?.destroy();
     replacement.attachTo(this.contentEl);
@@ -436,6 +530,7 @@ export class SupernoteNoteView extends FileView {
         session.descriptor.pageCount,
       );
     }
+    return true;
   }
 
   private reportUnavailablePage(

@@ -14,12 +14,7 @@ export type {
   RenderedNotebookPage,
 } from "./notebook-types";
 
-const MIB = 1_024 * 1_024;
 const PARSE_WORKING_BYTES_PER_SOURCE_BYTE = 4;
-export const DESKTOP_RENDER_BUDGET_BYTES = 128 * MIB;
-export const MOBILE_RENDER_BUDGET_BYTES = 96 * MIB;
-export const DESKTOP_TRANSIENT_SYNC_BUDGET_BYTES = 192 * MIB;
-export const MOBILE_TRANSIENT_SYNC_BUDGET_BYTES = 128 * MIB;
 
 export interface NotebookViewResourceState {
   readonly visible: boolean;
@@ -28,11 +23,11 @@ export interface NotebookViewResourceState {
   readonly canvasBytes?: number;
 }
 
-export type NotebookViewAdmissionResult =
-  | { readonly admitted: true }
+export type NotebookViewUpdateResult =
+  | { readonly updated: true }
   | {
-      readonly admitted: false;
-      readonly reason: "resource-budget" | "unavailable";
+      readonly updated: false;
+      readonly reason: "unavailable";
     };
 
 export interface NotebookBitmapHandle {
@@ -59,21 +54,11 @@ export interface NotebookSessionLease {
     scale?: number,
     encoding?: "opaque-rgb",
   ): Promise<RenderedNotebookPage>;
-  updateView(state: NotebookViewResourceState): NotebookViewAdmissionResult;
+  updateView(state: NotebookViewResourceState): NotebookViewUpdateResult;
   close(): void;
 }
 
 export interface NotebookOpenOptions {
-  /**
-   * `reloadable` allows short-lived inspection work to suspend a visible
-   * reader's worker source while leaving its already-drawn canvas intact.
-   */
-  reclaim?: "inactive" | "reloadable";
-  /**
-   * `transient` admits short-lived sync parsing against the separately bounded
-   * transient ceiling instead of the steady interactive-reader ceiling.
-   */
-  budget?: "interactive" | "transient";
   /** Cancels only this caller's pending lease claim. */
   signal?: AbortSignal;
 }
@@ -99,8 +84,6 @@ export interface NotebookServiceSnapshot {
   activeSessions: number;
   activeLeases: number;
   sessionOpens: number;
-  budgetBytes: number;
-  transientBudgetBytes: number;
   retainedBytes: number;
   retainedSourceBytes: number;
   retainedParsedBytes: number;
@@ -123,8 +106,6 @@ export interface NotebookServiceSnapshot {
 
 export interface NotebookServiceOptions {
   createWorker: () => Worker;
-  resourceBudgetBytes?: number;
-  transientResourceBudgetBytes?: number;
   maxConcurrentRenders?: number;
   maxQueuedRenders?: number;
   notifyRenderingUnavailable?: (message: string) => void;
@@ -154,8 +135,6 @@ interface SessionRecord {
   sourceBytes: number;
   parsedBytes: number;
   descriptorBytes: number;
-  admissionBudgetBytes: number;
-  reclaimVisibleSourcesDuringAdmission: boolean;
   pagePixelBytes: number;
   pageWidth: number;
   pageHeight: number;
@@ -296,8 +275,6 @@ export class NotebookService implements NotebookSessionProvider {
   private readonly retiredResourceSessions = new Set<SessionRecord>();
   private readonly pendingRenders = new Map<number, PendingRender>();
   private readonly renderQueue: PendingRender[] = [];
-  private readonly resourceBudgetBytes: number;
-  private readonly transientResourceBudgetBytes: number;
   private readonly maxConcurrentRenders: number;
   private readonly maxQueuedRenders: number;
   private nextSessionId = 1;
@@ -316,14 +293,6 @@ export class NotebookService implements NotebookSessionProvider {
   private evictedBitmaps = 0;
 
   constructor(private readonly options: NotebookServiceOptions) {
-    this.resourceBudgetBytes = Math.max(
-      1,
-      options.resourceBudgetBytes ?? DESKTOP_RENDER_BUDGET_BYTES,
-    );
-    this.transientResourceBudgetBytes = Math.max(
-      this.resourceBudgetBytes,
-      options.transientResourceBudgetBytes ?? this.resourceBudgetBytes,
-    );
     this.maxConcurrentRenders = Math.max(
       1,
       Math.trunc(options.maxConcurrentRenders ?? 2),
@@ -342,16 +311,12 @@ export class NotebookService implements NotebookSessionProvider {
       throw this.abortError();
     }
     const worker = this.ensureWorker();
-    const admissionBudgetBytes =
-      options.budget === "transient"
-        ? this.transientResourceBudgetBytes
-        : this.resourceBudgetBytes;
     const identity = notebookIdentity(source.path, source.revision);
     const existing = this.sessionsByIdentity.get(identity);
     if (existing && !existing.closed) {
       existing.leases += 1;
       existing.lastUsed = ++this.resourceClock;
-      return this.openClaim(existing, options, admissionBudgetBytes);
+      return this.openClaim(existing, options);
     }
 
     const opened = deferred<NotebookDescriptor>();
@@ -365,8 +330,6 @@ export class NotebookService implements NotebookSessionProvider {
       sourceBytes: 0,
       parsedBytes: 0,
       descriptorBytes: 0,
-      admissionBudgetBytes,
-      reclaimVisibleSourcesDuringAdmission: options.reclaim === "reloadable",
       pagePixelBytes: 0,
       pageWidth: 0,
       pageHeight: 0,
@@ -388,29 +351,23 @@ export class NotebookService implements NotebookSessionProvider {
     };
     this.sessionsByIdentity.set(identity, record);
     this.sessionsById.set(record.id, record);
-    void this.initializeRecord(
-      record,
-      source,
-      worker,
-      options,
-      admissionBudgetBytes,
-    ).catch((error: unknown) => {
-      this.closeSession(
-        record,
-        error instanceof Error
-          ? error
-          : new Error("Could not open Supernote notebook session"),
-      );
-    });
-    return this.openClaim(record, options, admissionBudgetBytes);
+    void this.initializeRecord(record, source, worker).catch(
+      (error: unknown) => {
+        this.closeSession(
+          record,
+          error instanceof Error
+            ? error
+            : new Error("Could not open Supernote notebook session"),
+        );
+      },
+    );
+    return this.openClaim(record, options);
   }
 
   private async initializeRecord(
     record: SessionRecord,
     source: NotebookSource,
     worker: Worker,
-    options: NotebookOpenOptions,
-    admissionBudgetBytes: number,
   ): Promise<void> {
     let bytes: Uint8Array;
     try {
@@ -433,22 +390,16 @@ export class NotebookService implements NotebookSessionProvider {
       bytes,
       "bytes" in source && source.transfer === "copy",
       worker,
-      options.reclaim,
-      admissionBudgetBytes,
     );
   }
 
   private async openClaim(
     record: SessionRecord,
     options: NotebookOpenOptions,
-    admissionBudgetBytes: number,
   ): Promise<NotebookSessionLease> {
     try {
       const descriptor = await this.withAbort(record.opened, options.signal);
-      await this.withAbort(
-        this.ensureResident(record, options.reclaim, admissionBudgetBytes),
-        options.signal,
-      );
+      await this.withAbort(this.ensureResident(record), options.signal);
       return this.createLease(record, descriptor);
     } catch (error) {
       if (!record.closed) {
@@ -557,8 +508,6 @@ export class NotebookService implements NotebookSessionProvider {
         0,
       ),
       sessionOpens: this.sessionOpens,
-      budgetBytes: this.resourceBudgetBytes,
-      transientBudgetBytes: this.transientResourceBudgetBytes,
       retainedBytes:
         retainedSourceBytes +
         retainedParsedBytes +
@@ -616,25 +565,9 @@ export class NotebookService implements NotebookSessionProvider {
     bytes: Uint8Array,
     copy: boolean,
     worker = this.ensureWorker(),
-    reclaim: NotebookOpenOptions["reclaim"] = "inactive",
-    admissionBudgetBytes = this.resourceBudgetBytes,
   ): Promise<void> {
     const parseWorkingBytes =
       bytes.byteLength * PARSE_WORKING_BYTES_PER_SOURCE_BYTE;
-    if (
-      !this.evictToFit(
-        bytes.byteLength + parseWorkingBytes,
-        record,
-        reclaim === "reloadable",
-        admissionBudgetBytes,
-      )
-    ) {
-      throw new Error(
-        `Supernote source exceeds the ${admissionBudgetBytes}-byte resource budget`,
-      );
-    }
-    record.admissionBudgetBytes = admissionBudgetBytes;
-    record.reclaimVisibleSourcesDuringAdmission = reclaim === "reloadable";
     const opening = deferred<void>();
     record.opening = opening.promise;
     record.resolveOpening = opening.resolve;
@@ -667,11 +600,7 @@ export class NotebookService implements NotebookSessionProvider {
     }
   }
 
-  private ensureResident(
-    record: SessionRecord,
-    reclaim: NotebookOpenOptions["reclaim"] = "inactive",
-    admissionBudgetBytes = this.resourceBudgetBytes,
-  ): Promise<void> {
+  private ensureResident(record: SessionRecord): Promise<void> {
     if (record.closed) {
       return Promise.reject(new Error("Notebook source changed"));
     }
@@ -694,14 +623,7 @@ export class NotebookService implements NotebookSessionProvider {
         throw new Error("Notebook source changed");
       }
       this.sessionOpens += 1;
-      await this.openWorkerSession(
-        record,
-        bytes,
-        false,
-        this.ensureWorker(),
-        reclaim,
-        admissionBudgetBytes,
-      );
+      await this.openWorkerSession(record, bytes, false, this.ensureWorker());
     })();
     record.restoring = restoring;
     const clearRestoring = (): void => {
@@ -729,22 +651,6 @@ export class NotebookService implements NotebookSessionProvider {
         }
         record.parsedBytes =
           record.descriptorBytes + response.parsedMetadataBytes;
-        if (
-          !this.evictToFit(
-            0,
-            record,
-            record.reclaimVisibleSourcesDuringAdmission,
-            record.admissionBudgetBytes,
-          )
-        ) {
-          this.closeSession(
-            record,
-            new Error(
-              `Supernote parsed source exceeds the ${record.admissionBudgetBytes}-byte resource budget`,
-            ),
-          );
-          return;
-        }
         record.opening = null;
         record.resolveOpening?.();
         record.resolveOpening = null;
@@ -787,17 +693,7 @@ export class NotebookService implements NotebookSessionProvider {
       );
     } else if (response.output === "bitmap" && pending.output === "bitmap") {
       const cached = this.cacheBitmap(pending, response.bitmap);
-      if (cached) {
-        this.resolveBitmap(pending, cached);
-      } else {
-        response.bitmap.close();
-        this.rejectRender(
-          pending,
-          new Error(
-            `Supernote bitmap exceeds the ${this.resourceBudgetBytes}-byte resource budget`,
-          ),
-        );
-      }
+      this.resolveBitmap(pending, cached);
     } else if (response.output === "png" && pending.output === "png") {
       pending.settled = true;
       pending.resolve({
@@ -869,6 +765,7 @@ export class NotebookService implements NotebookSessionProvider {
           this.closeSession(record);
         } else {
           this.releaseUnneededResources(record);
+          this.suspendIfInactive(record);
         }
       },
     };
@@ -879,10 +776,10 @@ export class NotebookService implements NotebookSessionProvider {
     descriptor: NotebookDescriptor,
     lease: LeaseState,
     view: NotebookViewResourceState,
-  ): NotebookViewAdmissionResult {
+  ): NotebookViewUpdateResult {
     if (lease.closed || record.closed) {
       return {
-        admitted: false,
+        updated: false,
         reason: "unavailable",
       };
     }
@@ -902,20 +799,11 @@ export class NotebookService implements NotebookSessionProvider {
         ? Math.max(0, Math.trunc(view.canvasBytes ?? 0))
         : 0,
     };
-    const additionalCanvasBytes = Math.max(
-      0,
-      (nextView.canvasBytes ?? 0) - (lease.view.canvasBytes ?? 0),
-    );
-    if (!this.evictToFit(additionalCanvasBytes)) {
-      return {
-        admitted: false,
-        reason: "resource-budget",
-      };
-    }
     lease.view = nextView;
     this.releaseUnneededResources(record);
+    this.suspendIfInactive(record);
     this.pumpQueue();
-    return { admitted: true };
+    return { updated: true };
   }
 
   private canvasBytes(record: SessionRecord): number {
@@ -1163,25 +1051,7 @@ export class NotebookService implements NotebookSessionProvider {
       }
       const index = this.renderQueue.indexOf(next);
       this.renderQueue.splice(index, 1);
-      if (!this.reserve(next)) {
-        if (
-          this.fixedRetainedBytes() + next.estimatedBytes <=
-          this.resourceBudgetBytes
-        ) {
-          this.renderQueue.push(next);
-          return;
-        }
-        this.pendingRenders.delete(next.id);
-        this.removePendingBitmap(next);
-        this.rejectRender(
-          next,
-          new Error(
-            `Supernote render exceeds the ${this.resourceBudgetBytes}-byte resource budget`,
-          ),
-        );
-        next.state = "completed";
-        continue;
-      }
+      this.reserve(next);
       next.state = "in-flight";
       this.activeRenders += 1;
       this.maxObservedInFlightRenders = Math.max(
@@ -1202,24 +1072,9 @@ export class NotebookService implements NotebookSessionProvider {
     }
   }
 
-  private reserve(render: PendingRender): boolean {
-    if (!this.evictToFit(render.estimatedBytes)) {
-      return false;
-    }
+  private reserve(render: PendingRender): void {
     render.reservationActive = true;
     this.inFlightBytes += render.estimatedBytes;
-    return true;
-  }
-
-  private fixedRetainedBytes(): number {
-    return [...this.sessionsById.values()].reduce(
-      (total, session) =>
-        total +
-        session.sourceBytes +
-        session.parsedBytes +
-        this.canvasBytes(session),
-      0,
-    );
   }
 
   private finishRender(render: PendingRender): void {
@@ -1229,6 +1084,7 @@ export class NotebookService implements NotebookSessionProvider {
     this.releaseReservation(render);
     this.pendingRenders.delete(render.id);
     this.removePendingBitmap(render);
+    this.suspendIfInactive(render.record);
     if (render.state !== "cancelled") {
       render.state = "completed";
     }
@@ -1257,10 +1113,17 @@ export class NotebookService implements NotebookSessionProvider {
 
   private lowestPriorityQueued(): PendingRender | undefined {
     return this.renderQueue.reduce<PendingRender | undefined>(
-      (selected, render) =>
-        !selected || compareRenderOrder(render, selected) > 0
+      (selected, render) => {
+        const speculative =
+          render.output === "bitmap" &&
+          render.priority !== RENDER_PRIORITY.currentPage;
+        if (!speculative) {
+          return selected;
+        }
+        return !selected || compareRenderOrder(render, selected) > 0
           ? render
-          : selected,
+          : selected;
+      },
       undefined,
     );
   }
@@ -1382,11 +1245,8 @@ export class NotebookService implements NotebookSessionProvider {
   private cacheBitmap(
     render: PendingBitmap,
     bitmap: ImageBitmap,
-  ): CachedBitmap | null {
+  ): CachedBitmap {
     const bytes = bitmapBytes(bitmap);
-    if (!this.evictToFit(bytes)) {
-      return null;
-    }
     const prior = render.record.bitmaps.get(render.key);
     if (prior) {
       this.evictBitmap(render.record, prior);
@@ -1430,73 +1290,21 @@ export class NotebookService implements NotebookSessionProvider {
     };
   }
 
-  private evictToFit(
-    additionalBytes: number,
-    excludedSession?: SessionRecord,
-    includeVisibleSessions = false,
-    budgetBytes = this.resourceBudgetBytes,
-  ): boolean {
-    while (this.retainedBytes() + additionalBytes > budgetBytes) {
-      const candidate = this.oldestUnpinnedBitmap();
-      if (candidate) {
-        this.evictBitmap(candidate.record, candidate.bitmap);
-        continue;
-      }
-      const source = this.oldestSuspendableSession(
-        excludedSession,
-        includeVisibleSessions,
-      );
-      if (!source) {
-        return false;
-      }
-      this.suspendSession(source);
+  private suspendIfInactive(record: SessionRecord): void {
+    const visible = [...record.leaseStates].some((lease) => lease.view.visible);
+    const hasPendingRender = [...this.pendingRenders.values()].some(
+      (render) => render.record === record,
+    );
+    if (
+      visible ||
+      hasPendingRender ||
+      !record.resident ||
+      record.opening ||
+      !record.sourceLoader
+    ) {
+      return;
     }
-    return true;
-  }
-
-  private oldestUnpinnedBitmap():
-    | { record: SessionRecord; bitmap: CachedBitmap }
-    | undefined {
-    let selected: { record: SessionRecord; bitmap: CachedBitmap } | undefined;
-    for (const record of this.sessionsById.values()) {
-      for (const bitmap of record.bitmaps.values()) {
-        if (
-          !this.isPinned(record, bitmap) &&
-          (!selected || bitmap.lastUsed < selected.bitmap.lastUsed)
-        ) {
-          selected = { record, bitmap };
-        }
-      }
-    }
-    return selected;
-  }
-
-  private oldestSuspendableSession(
-    excludedSession?: SessionRecord,
-    includeVisibleSessions = false,
-  ): SessionRecord | undefined {
-    let selected: SessionRecord | undefined;
-    for (const record of this.sessionsById.values()) {
-      const hasPendingRender = [...this.pendingRenders.values()].some(
-        (render) => render.record === record,
-      );
-      const visible = [...record.leaseStates].some(
-        (lease) => lease.view.visible,
-      );
-      if (
-        record !== excludedSession &&
-        record.resident &&
-        !record.opening &&
-        record.sourceBytes > 0 &&
-        record.sourceLoader &&
-        !hasPendingRender &&
-        (!visible || includeVisibleSessions) &&
-        (!selected || record.lastUsed < selected.lastUsed)
-      ) {
-        selected = record;
-      }
-    }
-    return selected;
+    this.suspendSession(record);
   }
 
   private suspendSession(record: SessionRecord): void {

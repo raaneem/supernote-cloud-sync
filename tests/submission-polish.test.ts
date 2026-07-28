@@ -36,4 +36,38 @@ describe("submission polish", () => {
       /#111|#f5f5f5|#333|rgb\(20 20 20\s*\/\s*72%\)/,
     );
   });
+
+  it("keeps the mobile Cloud browser and close control inside iOS safe areas", async () => {
+    const browser = await source("../src/ui/folder-picker-modal.ts");
+    const styles = await source("../styles.css");
+    const mobileBrowserStyles = styles.slice(
+      styles.indexOf(".supernote-sync-browser-modal.is-mobile"),
+      styles.indexOf(".supernote-note-view"),
+    );
+
+    expect(browser).toContain(
+      'this.modalEl.toggleClass("is-mobile", Platform.isMobile)',
+    );
+    expect(mobileBrowserStyles).toContain("100dvh");
+    expect(mobileBrowserStyles).toContain("env(safe-area-inset-top, 0px)");
+    expect(mobileBrowserStyles).toContain("env(safe-area-inset-bottom, 0px)");
+    expect(mobileBrowserStyles).toContain(
+      ".supernote-sync-browser-modal.is-mobile .modal-close-button",
+    );
+  });
+
+  it("shares animated Cloud folder loading feedback across platforms", async () => {
+    const browser = await source("../src/ui/folder-picker-modal.ts");
+    const loadingState = browser.slice(
+      browser.indexOf("private renderLoadingState("),
+      browser.indexOf("private transitionClass("),
+    );
+    const styles = await source("../styles.css");
+
+    expect(loadingState).toContain("supernote-sync-browser-skeleton-row");
+    expect(loadingState).not.toContain("Platform.isMobile");
+    expect(styles).toContain("@keyframes supernote-sync-enter-forward");
+    expect(styles).toContain("@keyframes supernote-sync-enter-back");
+    expect(styles).toContain("@media (prefers-reduced-motion: reduce)");
+  });
 });
